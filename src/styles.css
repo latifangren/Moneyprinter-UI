@@ -185,7 +185,9 @@ button:disabled {
 .prompt-actions,
 .status-chip-row,
 .topbar-actions,
-.api-meta {
+.api-meta,
+.studio-default-actions,
+.toggle-row {
   display: flex;
   align-items: center;
 }
@@ -807,6 +809,12 @@ p {
   color-scheme: dark;
 }
 
+.prompt-card input[type="checkbox"] {
+  width: 1.15rem;
+  min-height: 1.15rem;
+  accent-color: var(--accent-primary);
+}
+
 .prompt-card input:hover,
 .prompt-card select:hover,
 .prompt-card textarea:hover {
@@ -816,6 +824,63 @@ p {
 .studio-form label {
   display: grid;
   gap: var(--space-2);
+}
+
+.studio-defaults-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(90deg, var(--accent-primary-dim), transparent 42%),
+    var(--bg-control);
+}
+
+.studio-defaults-panel h4,
+.studio-defaults-panel p {
+  margin-bottom: 0;
+}
+
+.studio-defaults-panel p {
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.studio-default-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.studio-default-actions .secondary-action {
+  min-height: 2.25rem;
+  padding: 0 var(--space-3);
+  font-size: 0.78rem;
+}
+
+.toggle-row {
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-control);
+}
+
+.toggle-row span {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.toggle-row small {
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .form-grid {
@@ -1302,7 +1367,8 @@ p {
   .studio-layout,
   .compact-form-grid,
   .two-column-grid,
-  .task-control-panel {
+  .task-control-panel,
+  .studio-defaults-panel {
     grid-template-columns: 1fr;
   }
 
@@ -1386,7 +1452,8 @@ p {
     width: 100%;
   }
 
-  .split-actions {
+  .split-actions,
+  .studio-default-actions {
     align-items: stretch;
     flex-direction: column;
   }

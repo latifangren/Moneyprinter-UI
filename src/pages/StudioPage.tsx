@@ -1,11 +1,23 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, Loader2, PlayCircle, Sparkles, Wand2 } from "lucide-react";
+import { AlertCircle, Loader2, PlayCircle, RotateCcw, Save, Sparkles, Undo2, Wand2 } from "lucide-react";
 import type { ApiStatus, CreateVideoPayload } from "../api";
 import { createVideo, generateScript, generateTerms, getTask } from "../api";
 import { getErrorMessage } from "../apiErrors";
 import { TaskOutputs } from "../components/TaskOutputs";
 import { TaskProgress } from "../components/TaskProgress";
-import { DEFAULT_PARAGRAPH_NUMBER, DEFAULT_TERMS_AMOUNT, DEFAULT_VIDEO_LANGUAGE, clampNumber, formatTerms, parseTerms } from "../studioForm";
+import {
+  APP_DEFAULT_STUDIO_SETTINGS,
+  clearStoredStudioDefaultSettings,
+  clampNumber,
+  formatTerms,
+  loadStoredStudioDefaultSettings,
+  parseTerms,
+  saveStoredStudioDefaultSettings,
+  type StudioDefaultSettings,
+  type StudioDefaultsLoadResult,
+  type StudioVideoAspect,
+  type StudioVideoSource,
+} from "../studioForm";
 import {
   createSubmittedTask,
   taskStatusLabel,
@@ -23,16 +35,18 @@ type StudioPageProps = {
 };
 
 export function StudioPage({ status, onTaskChange }: StudioPageProps) {
+  const [initialStudioDefaults] = useState<StudioDefaultsLoadResult>(() => getInitialStudioDefaults());
   const [subject, setSubject] = useState("");
   const [script, setScript] = useState("");
   const [terms, setTerms] = useState("");
-  const [language, setLanguage] = useState(DEFAULT_VIDEO_LANGUAGE);
-  const [paragraphNumber, setParagraphNumber] = useState(DEFAULT_PARAGRAPH_NUMBER);
-  const [termsAmount, setTermsAmount] = useState(DEFAULT_TERMS_AMOUNT);
-  const [aspect, setAspect] = useState<CreateVideoPayload["video_aspect"]>("9:16");
-  const [videoSource, setVideoSource] = useState("pexels");
-  const [voiceName, setVoiceName] = useState("en-US-JennyNeural-Female");
-  const [studioMessage, setStudioMessage] = useState("");
+  const [language, setLanguage] = useState(initialStudioDefaults.settings.videoLanguage);
+  const [paragraphNumber, setParagraphNumber] = useState(initialStudioDefaults.settings.paragraphNumber);
+  const [termsAmount, setTermsAmount] = useState(initialStudioDefaults.settings.termsAmount);
+  const [aspect, setAspect] = useState<StudioVideoAspect>(initialStudioDefaults.settings.videoAspect);
+  const [videoSource, setVideoSource] = useState<StudioVideoSource>(initialStudioDefaults.settings.videoSource);
+  const [voiceName, setVoiceName] = useState(initialStudioDefaults.settings.voiceName);
+  const [subtitleEnabled, setSubtitleEnabled] = useState(initialStudioDefaults.settings.subtitleEnabled);
+  const [studioMessage, setStudioMessage] = useState(initialStudioDefaults.message ?? "");
   const [studioError, setStudioError] = useState("");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [isGeneratingTerms, setIsGeneratingTerms] = useState(false);
@@ -205,6 +219,91 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
     setIsSubmittingVideo(false);
   }
 
+  function getCurrentDefaultSettings(): StudioDefaultSettings {
+    return {
+      videoLanguage: language,
+      paragraphNumber,
+      termsAmount,
+      voiceName,
+      videoAspect: aspect,
+      videoSource,
+      subtitleEnabled,
+    };
+  }
+
+  function applyDefaultSettings(settings: StudioDefaultSettings) {
+    setLanguage(settings.videoLanguage);
+    setParagraphNumber(settings.paragraphNumber);
+    setTermsAmount(settings.termsAmount);
+    setAspect(settings.videoAspect);
+    setVideoSource(settings.videoSource);
+    setVoiceName(settings.voiceName);
+    setSubtitleEnabled(settings.subtitleEnabled);
+  }
+
+  function handleSaveStudioDefaults() {
+    const storage = getBrowserStorage();
+    if (!storage) {
+      setStudioError("Browser storage is unavailable, so Studio defaults could not be saved.");
+      setStudioMessage("");
+      return;
+    }
+
+    const result = saveStoredStudioDefaultSettings(storage, getCurrentDefaultSettings());
+    if (!result.ok) {
+      setStudioError(result.message);
+      setStudioMessage("");
+      return;
+    }
+
+    setStudioError("");
+    setStudioMessage("Current Studio settings saved as browser-local defaults.");
+  }
+
+  function handleRestoreStudioDefaults() {
+    const storage = getBrowserStorage();
+    if (!storage) {
+      setStudioError("Browser storage is unavailable, so saved Studio defaults could not be restored.");
+      setStudioMessage("");
+      return;
+    }
+
+    const result = loadStoredStudioDefaultSettings(storage);
+    if (result.status === "failed") {
+      setStudioError(result.message ?? "Saved Studio defaults could not be restored from browser storage.");
+      setStudioMessage("");
+      return;
+    }
+
+    applyDefaultSettings(result.settings);
+    setStudioError("");
+    setStudioMessage(
+      result.status === "missing"
+        ? "No browser-local Studio defaults found. App defaults were restored."
+        : result.message ?? "Saved Studio defaults restored.",
+    );
+  }
+
+  function handleResetStudioDefaults() {
+    const storage = getBrowserStorage();
+    if (!storage) {
+      setStudioError("Browser storage is unavailable, so saved Studio defaults could not be cleared.");
+      setStudioMessage("");
+      return;
+    }
+
+    const result = clearStoredStudioDefaultSettings(storage);
+    if (!result.ok) {
+      setStudioError(result.message);
+      setStudioMessage("");
+      return;
+    }
+
+    applyDefaultSettings(APP_DEFAULT_STUDIO_SETTINGS);
+    setStudioError("");
+    setStudioMessage("Studio settings reset to app defaults and saved browser defaults cleared.");
+  }
+
   function buildVideoPayload(): CreateVideoPayload {
     return {
       video_subject: subject.trim(),
@@ -223,7 +322,7 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
       bgm_type: "random",
       bgm_file: "",
       bgm_volume: 0.2,
-      subtitle_enabled: true,
+      subtitle_enabled: subtitleEnabled,
       subtitle_position: "bottom",
       custom_position: 70,
       font_name: "STHeitiMedium.ttc",
@@ -259,6 +358,27 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
           ) : null}
         </div>
         <div className="prompt-card studio-form">
+          <section className="studio-defaults-panel" aria-labelledby="studio-defaults-heading">
+            <div>
+              <h4 id="studio-defaults-heading">Studio defaults</h4>
+              <p>Browser-local only. Saves visible settings, never subject, script, or terms.</p>
+            </div>
+            <div className="studio-default-actions">
+              <button className="secondary-action" type="button" onClick={handleSaveStudioDefaults}>
+                <Save size={16} aria-hidden="true" />
+                Save current as default
+              </button>
+              <button className="secondary-action" type="button" onClick={handleRestoreStudioDefaults}>
+                <RotateCcw size={16} aria-hidden="true" />
+                Restore defaults
+              </button>
+              <button className="secondary-action" type="button" onClick={handleResetStudioDefaults}>
+                <Undo2 size={16} aria-hidden="true" />
+                Reset app defaults
+              </button>
+            </div>
+          </section>
+
           <label htmlFor="story-subject">Video subject</label>
           <input
             id="story-subject"
@@ -337,7 +457,7 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
           <div className="form-grid compact-form-grid">
             <label htmlFor="video-aspect">
               Aspect
-              <select id="video-aspect" value={aspect} onChange={(event) => setAspect(event.target.value as CreateVideoPayload["video_aspect"])}>
+              <select id="video-aspect" value={aspect} onChange={(event) => setAspect(event.target.value as StudioVideoAspect)}>
                 <option value="9:16">Portrait 9:16</option>
                 <option value="16:9">Landscape 16:9</option>
                 <option value="1:1">Square 1:1</option>
@@ -345,7 +465,7 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
             </label>
             <label htmlFor="video-source">
               Source
-              <select id="video-source" value={videoSource} onChange={(event) => setVideoSource(event.target.value)}>
+              <select id="video-source" value={videoSource} onChange={(event) => setVideoSource(event.target.value as StudioVideoSource)}>
                 <option value="pexels">Pexels</option>
                 <option value="pixabay">Pixabay</option>
                 <option value="local">Local</option>
@@ -356,6 +476,19 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
               <input id="voice-name" value={voiceName} onChange={(event) => setVoiceName(event.target.value)} />
             </label>
           </div>
+
+          <label className="toggle-row" htmlFor="subtitle-enabled">
+            <span>
+              Subtitles
+              <small>Include generated captions in video payload.</small>
+            </span>
+            <input
+              id="subtitle-enabled"
+              type="checkbox"
+              checked={subtitleEnabled}
+              onChange={(event) => setSubtitleEnabled(event.target.checked)}
+            />
+          </label>
 
           {studioError ? <p className="form-alert form-alert-error">{studioError}</p> : null}
           {studioMessage ? <p className="form-alert form-alert-info">{studioMessage}</p> : null}
@@ -404,6 +537,24 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
       )}
     </>
   );
+}
+
+function getInitialStudioDefaults(): StudioDefaultsLoadResult {
+  const storage = getBrowserStorage();
+  return storage ? loadStoredStudioDefaultSettings(storage) : { settings: APP_DEFAULT_STUDIO_SETTINGS, status: "missing" };
+}
+
+function getBrowserStorage(): Storage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return window.localStorage;
+  } catch (error) {
+    console.warn("Studio defaults storage unavailable", error);
+    return null;
+  }
 }
 
 function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
