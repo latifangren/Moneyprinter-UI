@@ -24,7 +24,7 @@ For backend setup and core video generation engine, use upstream MoneyPrinterTur
 
 ## Current Scope
 
-Current UI matches implemented pages and flows in `src/App.tsx` and `src/api.ts`.
+Current UI matches implemented pages and flows split across `src/App.tsx`, `src/pages/*`, `src/components/*`, and shared helpers in `src/api.ts`, `src/taskModel.ts`, `src/studioForm.ts`, `src/content.ts`, and `src/outputUrl.ts`.
 
 | Area | Current state |
 | --- | --- |
@@ -110,6 +110,7 @@ Current package scripts:
 | --- | --- | --- |
 | `dev` | `vite --host 127.0.0.1 --port 5173` | Local development server with `/api` and `/tasks` proxy |
 | `build` | `tsc -b && vite build` | Type check and production build |
+| `test:unit` | `node --test src/outputUrl.test.mjs` | Run output URL resolver unit tests |
 | `preview` | `vite preview --host 127.0.0.1 --port 4173` | Preview built app |
 
 ## Environment Variables
@@ -231,7 +232,7 @@ For non-portable use, point `VITE_API_BASE_URL` at any reachable MoneyPrinterTur
 
 This README is written against current local implementation and local backend integration assumptions.
 
-- Frontend checked against `src/App.tsx`, `src/api.ts`, `.env.example`, and `package.json`
+- Frontend checked against `src/App.tsx`, `src/pages/*`, `src/components/*`, `src/api.ts`, `src/taskModel.ts`, `src/studioForm.ts`, `src/content.ts`, `src/outputUrl.ts`, `src/outputUrl.test.mjs`, `.env.example`, and `package.json`
 - Backend compatibility note based on bundled local `MoneyPrinterTurbo/` checkout
 - Tested against project knowledge base reference for upstream commit `042deb8`
 
@@ -263,6 +264,7 @@ Compatibility note:
 - API base URL normalization lives in `src/api.ts`
 - Same-origin is the default browser request path in dev when `VITE_API_BASE_URL` is unset or blank
 - Backend reachability probe uses `GET /api/v1/tasks?page=1&page_size=1`
+- Output URL normalization lives in `src/outputUrl.ts` and is covered by `npm run test:unit`
 - Output links are normalized to backend `/tasks/...` paths before preview
 - Create Studio polling runs on interval and stops after capped attempts if task never resolves
 
