@@ -1,6 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { resolveOutputUrl } from "../api";
 import type { SubmittedTask } from "../taskModel";
+import { getOutputFilename, getTaskOutputSummary } from "../taskModel";
 
 type TaskOutputsProps = {
   task: SubmittedTask;
@@ -8,17 +9,40 @@ type TaskOutputsProps = {
 };
 
 export function TaskOutputs({ task, compact = false }: TaskOutputsProps) {
-  const outputs = [...task.combinedVideos, ...task.videos];
+  const outputSummary = getTaskOutputSummary(task, compact ? 3 : Number.MAX_SAFE_INTEGER);
 
-  if (outputs.length === 0) {
+  if (outputSummary.totalCount === 0) {
     return compact ? null : <p className="output-empty">No video outputs returned yet.</p>;
   }
 
+  if (compact) {
+    return (
+      <div className="output-grid output-grid-compact">
+        <p className="output-summary">
+          {outputSummary.totalCount} output{outputSummary.totalCount === 1 ? "" : "s"}
+          {outputSummary.combinedCount > 0 ? `, ${outputSummary.combinedCount} combined` : ""}
+        </p>
+        {outputSummary.visibleOutputs.map((outputPath) => {
+          const outputUrl = resolveOutputUrl(outputPath);
+          const label = getOutputFilename(outputPath);
+
+          return (
+            <a className="output-link-compact" href={outputUrl} target="_blank" rel="noreferrer" key={outputPath}>
+              <ExternalLink size={14} aria-hidden="true" />
+              {label}
+            </a>
+          );
+        })}
+        {outputSummary.hiddenCount > 0 ? <span className="output-more">+{outputSummary.hiddenCount} more</span> : null}
+      </div>
+    );
+  }
+
   return (
-    <div className={`output-grid ${compact ? "output-grid-compact" : ""}`}>
-      {outputs.map((outputPath) => {
+    <div className="output-grid">
+      {outputSummary.outputs.map((outputPath) => {
         const outputUrl = resolveOutputUrl(outputPath);
-        const label = getOutputLabel(outputPath);
+        const label = getOutputFilename(outputPath);
 
         return (
           <article className="output-card" key={outputPath}>
@@ -36,11 +60,6 @@ export function TaskOutputs({ task, compact = false }: TaskOutputsProps) {
       })}
     </div>
   );
-}
-
-function getOutputLabel(outputPath: string): string {
-  const normalizedPath = outputPath.replaceAll("\\", "/");
-  return normalizedPath.split("/").filter(Boolean).at(-1) ?? "Open output";
 }
 
 function isVideoOutput(outputUrl: string): boolean {
