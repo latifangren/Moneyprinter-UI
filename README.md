@@ -110,7 +110,7 @@ Current package scripts:
 | --- | --- | --- |
 | `dev` | `vite --host 127.0.0.1 --port 5173` | Local development server with `/api` and `/tasks` proxy |
 | `build` | `tsc -b && vite build` | Type check and production build |
-| `test:unit` | `node --test src/outputUrl.test.mjs` | Run output URL resolver unit tests |
+| `test:unit` | `node --test src/outputUrl.test.mjs src/taskModel.test.mjs` | Run output URL resolver and task helper unit tests |
 | `preview` | `vite preview --host 127.0.0.1 --port 4173` | Preview built app |
 
 ## Environment Variables
@@ -245,7 +245,7 @@ Compatibility note:
 - Frontend depends on separately running MoneyPrinterTurbo backend
 - Assets page is still placeholder UI
 - Some action buttons in dashboard and assets area are not wired to backend behavior
-- Search box is presentational only
+- Topbar search box is presentational only; Tasks page search and filters are wired to the local task list
 - No authentication flow documented or enforced by this UI layer
 - UI assumes backend responses follow MoneyPrinterTurbo response envelope shape with `status`, optional `message`, and `data`
 - Output preview depends on backend exposing generated files under `/tasks`
@@ -253,7 +253,6 @@ Compatibility note:
 ## Roadmap
 
 - Real asset browser and upload flow
-- Stronger task history and filtering
 - Better handling for long-running jobs and retries
 - More complete settings for generation defaults
 - Clearer backend error surfacing across all workflow steps
