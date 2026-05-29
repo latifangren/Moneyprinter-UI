@@ -627,6 +627,18 @@ p {
   gap: var(--space-5);
 }
 
+.settings-layout {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.82fr) minmax(0, 1.18fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.settings-column {
+  display: grid;
+  gap: var(--space-5);
+}
+
 .api-card,
 .queue-card,
 .settings-card,
@@ -1278,7 +1290,27 @@ p {
   margin: 0;
 }
 
-.settings-card div {
+.settings-guidance-card,
+.settings-studio-card,
+.settings-defaults-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.settings-defaults-form label {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.settings-default-actions {
+  justify-content: flex-start;
+}
+
+.settings-storage-meta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-card dl > div {
   display: grid;
   gap: var(--space-1);
   padding: var(--space-4);
@@ -1365,6 +1397,7 @@ p {
 
   .hero-card,
   .studio-layout,
+  .settings-layout,
   .compact-form-grid,
   .two-column-grid,
   .task-control-panel,
@@ -1408,6 +1441,7 @@ p {
 
   .hero-card,
   .studio-layout,
+  .settings-layout,
   .api-card,
   .queue-card,
   .settings-card,
