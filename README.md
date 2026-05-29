@@ -34,7 +34,7 @@ Current UI matches implemented pages and flows split across `src/App.tsx`, `src/
 | Output preview | Implemented for `/tasks/...` output URLs, including direct links and inline video preview when file type is video |
 | Assets page | Placeholder UI only |
 | Some shell or action buttons | Placeholder only, no backend action wired |
-| Settings page | Implemented for API base URL reference and status refresh |
+| Settings page | Implemented for backend connection details, status refresh guidance, and browser-local Studio defaults management |
 
 ## Backend Requirement
 
@@ -110,7 +110,7 @@ Current package scripts:
 | --- | --- | --- |
 | `dev` | `vite --host 127.0.0.1 --port 5173` | Local development server with `/api` and `/tasks` proxy |
 | `build` | `tsc -b && vite build` | Type check and production build |
-| `test:unit` | `node --test src/outputUrl.test.mjs src/taskModel.test.mjs src/studioForm.test.mjs` | Run output URL resolver, task helper, and Studio form default unit tests |
+| `test:unit` | `node --test src/outputUrl.test.mjs src/taskModel.test.mjs src/studioForm.test.mjs src/api.test.mjs` | Run output URL resolver, task helper, Studio form default, and API metadata unit tests |
 | `preview` | `vite preview --host 127.0.0.1 --port 4173` | Preview built app |
 
 ## Environment Variables
@@ -215,10 +215,13 @@ Studio defaults use browser `localStorage` only. They persist across browser rel
 
 ### Settings
 
-- Shows `VITE_API_BASE_URL`
-- Shows default backend URL
-- Shows status probe path
-- Lets user refresh backend status check
+- Shows current backend status and lets user refresh the existing read-only status probe
+- Shows `VITE_API_BASE_URL`, local backend default, same-origin proxy label, and status probe path
+- Explains that backend target changes require editing `VITE_API_BASE_URL`, then restarting dev server or rebuilding
+- Manages browser-local Studio defaults for language, paragraph count, terms amount, voice name, video aspect, video source, and subtitles
+- Shows storage key and saved, missing, corrupt, or unavailable storage state inline
+- Never stores subject, script text, or generated terms
+- Makes no backend config writes and does not call generation endpoints
 
 ## Local Portable Windows Context
 
@@ -252,6 +255,7 @@ Compatibility note:
 - Topbar search box is presentational only; Tasks page search and filters are wired to the local task list
 - No authentication flow documented or enforced by this UI layer
 - Studio defaults are per browser and per origin because they live only in `localStorage`
+- Settings can save, restore, and reset only browser-local Studio defaults; it cannot change backend environment variables at runtime
 - UI assumes backend responses follow MoneyPrinterTurbo response envelope shape with `status`, optional `message`, and `data`
 - Output preview depends on backend exposing generated files under `/tasks`
 
@@ -268,6 +272,7 @@ Compatibility note:
 - API base URL normalization lives in `src/api.ts`
 - Same-origin is the default browser request path in dev when `VITE_API_BASE_URL` is unset or blank
 - Backend reachability probe uses `GET /api/v1/tasks?page=1&page_size=1`
+- Backend settings metadata is exported from `src/api.ts` and covered by `src/api.test.mjs`
 - Output URL normalization lives in `src/outputUrl.ts` and is covered by `npm run test:unit`
 - Output links are normalized to backend `/tasks/...` paths before preview
 - Create Studio polling runs on interval and stops after capped attempts if task never resolves
