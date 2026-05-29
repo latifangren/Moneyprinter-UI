@@ -29,7 +29,7 @@ Current UI matches implemented pages and flows split across `src/App.tsx`, `src/
 | Area | Current state |
 | --- | --- |
 | Dashboard | Implemented, includes backend status probe and workflow summary |
-| Create Studio | Implemented, can generate script, generate terms, submit video task, poll task status, preview outputs |
+| Create Studio | Implemented, can save/restore browser-local Studio defaults, generate script, generate terms, submit video task, poll task status, preview outputs |
 | Tasks page | Implemented, lists backend tasks, merges backend results with tasks created in current browser session |
 | Output preview | Implemented for `/tasks/...` output URLs, including direct links and inline video preview when file type is video |
 | Assets page | Placeholder UI only |
@@ -110,7 +110,7 @@ Current package scripts:
 | --- | --- | --- |
 | `dev` | `vite --host 127.0.0.1 --port 5173` | Local development server with `/api` and `/tasks` proxy |
 | `build` | `tsc -b && vite build` | Type check and production build |
-| `test:unit` | `node --test src/outputUrl.test.mjs src/taskModel.test.mjs` | Run output URL resolver and task helper unit tests |
+| `test:unit` | `node --test src/outputUrl.test.mjs src/taskModel.test.mjs src/studioForm.test.mjs` | Run output URL resolver, task helper, and Studio form default unit tests |
 | `preview` | `vite preview --host 127.0.0.1 --port 4173` | Preview built app |
 
 ## Environment Variables
@@ -170,13 +170,16 @@ Current frontend interprets backend task states like this:
 
 ## How Current Create Flow Works
 
-1. Enter video subject.
-2. Generate script through `POST /api/v1/scripts`.
-3. Edit script if needed.
-4. Generate terms through `POST /api/v1/terms`.
-5. Submit render through `POST /api/v1/videos`.
-6. Poll task with `GET /api/v1/tasks/{task_id}`.
-7. Preview returned `/tasks/...` outputs when backend finishes.
+1. Optionally save, restore, or reset browser-local Studio defaults for language, paragraph count, terms amount, voice name, video aspect, video source, and subtitles.
+2. Enter video subject.
+3. Generate script through `POST /api/v1/scripts`.
+4. Edit script if needed.
+5. Generate terms through `POST /api/v1/terms`.
+6. Submit render through `POST /api/v1/videos`.
+7. Poll task with `GET /api/v1/tasks/{task_id}`.
+8. Preview returned `/tasks/...` outputs when backend finishes.
+
+Studio defaults use browser `localStorage` only. They persist across browser reloads on the same origin, make no backend calls, and never store subject, script text, or generated terms.
 
 ## Pages
 
@@ -189,6 +192,7 @@ Current frontend interprets backend task states like this:
 ### Create Studio
 
 - Subject input
+- Browser-local Studio defaults for language, paragraph count, terms amount, voice name, video aspect, video source, and subtitles
 - Language, paragraph count, and term count controls
 - Script generation
 - Terms generation
@@ -232,7 +236,7 @@ For non-portable use, point `VITE_API_BASE_URL` at any reachable MoneyPrinterTur
 
 This README is written against current local implementation and local backend integration assumptions.
 
-- Frontend checked against `src/App.tsx`, `src/pages/*`, `src/components/*`, `src/api.ts`, `src/taskModel.ts`, `src/studioForm.ts`, `src/content.ts`, `src/outputUrl.ts`, `src/outputUrl.test.mjs`, `.env.example`, and `package.json`
+- Frontend checked against `src/App.tsx`, `src/pages/*`, `src/components/*`, `src/api.ts`, `src/taskModel.ts`, `src/studioForm.ts`, `src/content.ts`, `src/outputUrl.ts`, `src/outputUrl.test.mjs`, `src/studioForm.test.mjs`, `.env.example`, and `package.json`
 - Backend compatibility note based on bundled local `MoneyPrinterTurbo/` checkout
 - Tested against project knowledge base reference for upstream commit `042deb8`
 
@@ -247,6 +251,7 @@ Compatibility note:
 - Some action buttons in dashboard and assets area are not wired to backend behavior
 - Topbar search box is presentational only; Tasks page search and filters are wired to the local task list
 - No authentication flow documented or enforced by this UI layer
+- Studio defaults are per browser and per origin because they live only in `localStorage`
 - UI assumes backend responses follow MoneyPrinterTurbo response envelope shape with `status`, optional `message`, and `data`
 - Output preview depends on backend exposing generated files under `/tasks`
 
@@ -254,7 +259,7 @@ Compatibility note:
 
 - Real asset browser and upload flow
 - Better handling for long-running jobs and retries
-- More complete settings for generation defaults
+- More complete settings for generation defaults beyond current browser-local Studio preset fields
 - Clearer backend error surfacing across all workflow steps
 - Production deployment notes for hosting frontend against remote backend
 
@@ -266,6 +271,7 @@ Compatibility note:
 - Output URL normalization lives in `src/outputUrl.ts` and is covered by `npm run test:unit`
 - Output links are normalized to backend `/tasks/...` paths before preview
 - Create Studio polling runs on interval and stops after capped attempts if task never resolves
+- Studio default storage helpers live in `src/studioForm.ts` and are covered by `src/studioForm.test.mjs`
 
 ## License
 
