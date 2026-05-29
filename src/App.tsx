@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Clapperboard,
-  ExternalLink,
   Loader2,
   Menu,
   PlayCircle,
@@ -28,8 +27,10 @@ import {
   getApiBaseUrl,
   getTask,
   listTasks,
-  resolveOutputUrl,
 } from "./api";
+import { ApiStatusCard } from "./components/ApiStatusCard";
+import { TaskOutputs } from "./components/TaskOutputs";
+import { TaskProgress } from "./components/TaskProgress";
 import { ASSET_GROUPS, DASHBOARD_METRICS, NAV_ITEMS, type PageId } from "./content";
 import {
   createSubmittedTask,
@@ -800,39 +801,6 @@ function SettingsPage({ status, onRefresh }: { status: ApiStatus; onRefresh: () 
   );
 }
 
-function ApiStatusCard({
-  status,
-  onRefresh,
-  compact = false,
-}: {
-  status: ApiStatus;
-  onRefresh: () => Promise<void>;
-  compact?: boolean;
-}) {
-  return (
-    <section className={`panel-card api-card ${compact ? "api-card-compact" : ""}`}>
-      <div className="section-title-row">
-        <div>
-          <p className="eyebrow">Backend status</p>
-          <h3>FastAPI connection</h3>
-        </div>
-        <span className={`status-light status-${status.state}`} role="status">
-          <span className="sr-only">{`Backend is ${status.state}`}</span>
-        </span>
-      </div>
-      <p className="api-message">{status.message}</p>
-      <div className="api-meta">
-        <span>{status.baseUrl}</span>
-        <span>Checked {status.checkedAt}</span>
-      </div>
-      <button className="secondary-action" type="button" onClick={() => void onRefresh()} disabled={status.state === "checking"}>
-        <RefreshCcw size={17} />
-        {status.state === "checking" ? "Checking" : "Refresh status"}
-      </button>
-    </section>
-  );
-}
-
 function TaskQueueCard() {
   return (
     <section className="panel-card queue-card">
@@ -849,51 +817,6 @@ function TaskQueueCard() {
         <li>Review completed outputs from task polling and the Tasks page.</li>
       </ol>
     </section>
-  );
-}
-
-function TaskProgress({ task, compact = false }: { task: SubmittedTask; compact?: boolean }) {
-  return (
-    <div className={`task-progress ${compact ? "task-progress-compact" : ""}`}>
-      <div className="progress-track" role="progressbar" aria-label={`${taskStatusLabel(task.status)} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.max(0, Math.min(task.progress, 100))}>
-        <span style={{ width: `${Math.max(0, Math.min(task.progress, 100))}%` }} />
-      </div>
-      <div className="progress-meta">
-        <span>{task.progress}%</span>
-        <span>{task.message}</span>
-      </div>
-    </div>
-  );
-}
-
-function TaskOutputs({ task, compact = false }: { task: SubmittedTask; compact?: boolean }) {
-  const outputs = [...task.combinedVideos, ...task.videos];
-
-  if (outputs.length === 0) {
-    return compact ? null : <p className="output-empty">No video outputs returned yet.</p>;
-  }
-
-  return (
-    <div className={`output-grid ${compact ? "output-grid-compact" : ""}`}>
-      {outputs.map((outputPath) => {
-        const outputUrl = resolveOutputUrl(outputPath);
-        const label = getOutputLabel(outputPath);
-
-        return (
-          <article className="output-card" key={outputPath}>
-            {isVideoOutput(outputUrl) ? (
-              <video controls src={outputUrl} preload="metadata" aria-label={label}>
-                <track kind="captions" label="Generated captions" srcLang="en" src="data:text/vtt,WEBVTT%0A%0A" />
-              </video>
-            ) : null}
-            <a href={outputUrl} target="_blank" rel="noreferrer">
-              <ExternalLink size={16} aria-hidden="true" />
-              {label}
-            </a>
-          </article>
-        );
-      })}
-    </div>
   );
 }
 
@@ -914,15 +837,6 @@ function clampNumber(value: string, min: number, max: number): number {
     return min;
   }
   return Math.max(min, Math.min(max, Math.round(parsedValue)));
-}
-
-function getOutputLabel(outputPath: string): string {
-  const normalizedPath = outputPath.replaceAll("\\", "/");
-  return normalizedPath.split("/").filter(Boolean).at(-1) ?? "Open output";
-}
-
-function isVideoOutput(outputUrl: string): boolean {
-  return /\.(mp4|webm|ogg)(\?|#|$)/i.test(outputUrl);
 }
 
 function getErrorMessage(error: unknown): string {
