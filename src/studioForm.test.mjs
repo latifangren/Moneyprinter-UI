@@ -4,7 +4,11 @@ import test from "node:test";
 import {
   APP_DEFAULT_STUDIO_SETTINGS,
   STUDIO_DEFAULTS_STORAGE_KEY,
+  VIDEO_ASPECT_OPTIONS,
+  VIDEO_SOURCE_OPTIONS,
   clearStoredStudioDefaultSettings,
+  formatVideoAspectLabel,
+  formatVideoSourceLabel,
   loadStoredStudioDefaultSettings,
   normalizeStudioDefaultSettings,
   parseStoredStudioDefaultSettings,
@@ -53,7 +57,7 @@ test("normalizes Studio defaults and falls back for invalid values", () => {
       termsAmount: 0,
       voiceName: " ",
       videoAspect: "4:3",
-      videoSource: "unsplash",
+      videoSource: "local",
       subtitleEnabled: false,
       subject: "do not store",
       script: "do not store",
@@ -67,6 +71,23 @@ test("normalizes Studio defaults and falls back for invalid values", () => {
       subtitleEnabled: false,
     },
   );
+});
+
+test("exports shared dropdown options for Studio default controls", () => {
+  assert.deepEqual(VIDEO_ASPECT_OPTIONS, ["9:16", "16:9", "1:1"]);
+  assert.deepEqual(VIDEO_SOURCE_OPTIONS, ["pexels", "pixabay"]);
+});
+
+test("normalizes unsupported local video source to app default", () => {
+  assert.equal(normalizeStudioDefaultSettings({ videoSource: "local" }).videoSource, APP_DEFAULT_STUDIO_SETTINGS.videoSource);
+});
+
+test("formats shared dropdown option labels", () => {
+  assert.equal(formatVideoAspectLabel("9:16"), "Portrait 9:16");
+  assert.equal(formatVideoAspectLabel("16:9"), "Landscape 16:9");
+  assert.equal(formatVideoAspectLabel("1:1"), "Square 1:1");
+  assert.equal(formatVideoSourceLabel("pexels"), "Pexels");
+  assert.equal(formatVideoSourceLabel("pixabay"), "Pixabay");
 });
 
 test("serializes only browser-local preset fields", () => {
@@ -113,7 +134,7 @@ test("saves, loads, and clears defaults through provided storage", () => {
     termsAmount: 4,
     voiceName: "fr-FR-DeniseNeural-Female",
     videoAspect: "1:1",
-    videoSource: "local",
+    videoSource: "pixabay",
     subtitleEnabled: false,
   };
 

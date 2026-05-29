@@ -10,9 +10,13 @@ import {
   clearStoredStudioDefaultSettings,
   clampNumber,
   formatTerms,
+  formatVideoAspectLabel,
+  formatVideoSourceLabel,
   loadStoredStudioDefaultSettings,
   parseTerms,
   saveStoredStudioDefaultSettings,
+  VIDEO_ASPECT_OPTIONS,
+  VIDEO_SOURCE_OPTIONS,
   type StudioDefaultSettings,
   type StudioDefaultsLoadResult,
   type StudioVideoAspect,
@@ -458,17 +462,17 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
             <label htmlFor="video-aspect">
               Aspect
               <select id="video-aspect" value={aspect} onChange={(event) => setAspect(event.target.value as StudioVideoAspect)}>
-                <option value="9:16">Portrait 9:16</option>
-                <option value="16:9">Landscape 16:9</option>
-                <option value="1:1">Square 1:1</option>
+                {VIDEO_ASPECT_OPTIONS.map((option) => (
+                  <option value={option} key={option}>{formatVideoAspectLabel(option)}</option>
+                ))}
               </select>
             </label>
             <label htmlFor="video-source">
               Source
               <select id="video-source" value={videoSource} onChange={(event) => setVideoSource(event.target.value as StudioVideoSource)}>
-                <option value="pexels">Pexels</option>
-                <option value="pixabay">Pixabay</option>
-                <option value="local">Local</option>
+                {VIDEO_SOURCE_OPTIONS.map((option) => (
+                  <option value={option} key={option}>{formatVideoSourceLabel(option)}</option>
+                ))}
               </select>
             </label>
             <label htmlFor="voice-name">

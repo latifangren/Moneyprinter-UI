@@ -8,7 +8,7 @@ export const DEFAULT_SUBTITLE_ENABLED = true;
 export const STUDIO_DEFAULTS_STORAGE_KEY = "moneyprinter-ui:studio-defaults:v1";
 
 export type StudioVideoAspect = "16:9" | "9:16" | "1:1";
-export type StudioVideoSource = "pexels" | "pixabay" | "local";
+export type StudioVideoSource = "pexels" | "pixabay";
 
 export type StudioDefaultSettings = {
   videoLanguage: string;
@@ -34,8 +34,8 @@ export type StudioDefaultsStorageActionResult =
 
 type StudioDefaultsStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
-const VIDEO_ASPECT_OPTIONS: readonly StudioVideoAspect[] = ["9:16", "16:9", "1:1"];
-const VIDEO_SOURCE_OPTIONS: readonly StudioVideoSource[] = ["pexels", "pixabay", "local"];
+export const VIDEO_ASPECT_OPTIONS: readonly StudioVideoAspect[] = ["9:16", "16:9", "1:1"];
+export const VIDEO_SOURCE_OPTIONS: readonly StudioVideoSource[] = ["pexels", "pixabay"];
 
 export const APP_DEFAULT_STUDIO_SETTINGS: StudioDefaultSettings = {
   videoLanguage: DEFAULT_VIDEO_LANGUAGE,
@@ -128,6 +128,22 @@ export function clearStoredStudioDefaultSettings(storage: StudioDefaultsStorage)
   } catch (error) {
     return { ok: false, message: `Studio defaults could not be reset in browser storage: ${getStorageErrorMessage(error)}` };
   }
+}
+
+export function formatVideoAspectLabel(option: StudioVideoAspect): string {
+  if (option === "16:9") {
+    return "Landscape 16:9";
+  }
+
+  if (option === "1:1") {
+    return "Square 1:1";
+  }
+
+  return "Portrait 9:16";
+}
+
+export function formatVideoSourceLabel(option: StudioVideoSource): string {
+  return option.charAt(0).toUpperCase() + option.slice(1);
 }
 
 function normalizeRequiredString(value: unknown, fallback: string): string {
