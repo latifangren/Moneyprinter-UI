@@ -6,22 +6,13 @@ import {
   CheckCircle2,
   ChevronRight,
   Clapperboard,
-  Clock3,
-  Database,
   ExternalLink,
-  FileVideo,
-  FolderOpen,
-  Gauge,
-  Image,
-  LayoutDashboard,
   Loader2,
   Menu,
-  Palette,
   PlayCircle,
   Plus,
   RefreshCcw,
   Search,
-  Settings,
   Sparkles,
   UploadCloud,
   Wand2,
@@ -39,22 +30,7 @@ import {
   listTasks,
   resolveOutputUrl,
 } from "./api";
-
-type PageId = "dashboard" | "studio" | "tasks" | "assets" | "settings";
-
-type NavItem = {
-  id: PageId;
-  label: string;
-  description: string;
-  icon: typeof LayoutDashboard;
-};
-
-type Metric = {
-  label: string;
-  value: string;
-  trend: string;
-  icon: typeof Gauge;
-};
+import { ASSET_GROUPS, DASHBOARD_METRICS, NAV_ITEMS, type PageId } from "./content";
 
 type SubmittedTaskStatus = "submitted" | "processing" | "complete" | "failed" | "error" | "timeout";
 
@@ -77,27 +53,6 @@ const DEFAULT_PARAGRAPH_NUMBER = 1;
 const DEFAULT_TERMS_AMOUNT = 5;
 const TASK_POLL_INTERVAL_MS = 2500;
 const TASK_POLL_MAX_ATTEMPTS = 120;
-
-const NAV_ITEMS: NavItem[] = [
-  { id: "dashboard", label: "Dashboard", description: "Overview", icon: LayoutDashboard },
-  { id: "studio", label: "Create Studio", description: "Script to video", icon: Wand2 },
-  { id: "tasks", label: "Tasks", description: "Generation queue", icon: Activity },
-  { id: "assets", label: "Assets", description: "Materials", icon: FolderOpen },
-  { id: "settings", label: "Settings", description: "API and defaults", icon: Settings },
-];
-
-const DASHBOARD_METRICS: Metric[] = [
-  { label: "Draft concepts", value: "12", trend: "+4 this week", icon: Sparkles },
-  { label: "Queued videos", value: "Live", trend: "Backed by FastAPI tasks", icon: Clock3 },
-  { label: "Asset folders", value: "08", trend: "Local workspace", icon: Database },
-  { label: "Render health", value: "Phase 2", trend: "Real API flow", icon: Gauge },
-];
-
-const ASSET_GROUPS = [
-  { title: "Source images", count: "24", icon: Image },
-  { title: "Video clips", count: "16", icon: FileVideo },
-  { title: "Voice presets", count: "06", icon: Palette },
-];
 
 export function App() {
   const [activePage, setActivePage] = useState<PageId>(() => getInitialPage());
