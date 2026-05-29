@@ -7,6 +7,8 @@ export type ApiStatus = {
   message: string;
 };
 
+const SAME_ORIGIN_API_BASE_LABEL = "same-origin dev proxy";
+
 type ApiEnvelope<TData> = {
   status: number;
   message?: string | null;
@@ -102,39 +104,43 @@ export class ApiRequestError extends Error {
   }
 }
 
-const DEFAULT_API_BASE_URL = "http://127.0.0.1:8080";
 const API_STATUS_PROBE_PATH = "/api/v1/tasks?page=1&page_size=1";
 
 export function getApiBaseUrl(): string {
-  return normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL);
+  return normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL ?? "");
 }
 
 export function normalizeApiBaseUrl(rawValue: string): string {
   const trimmedValue = rawValue.trim();
 
   if (!trimmedValue) {
-    return DEFAULT_API_BASE_URL;
+    return "";
   }
 
   try {
     const url = new URL(trimmedValue);
     return url.toString().replace(/\/$/, "");
   } catch {
-    return DEFAULT_API_BASE_URL;
+    return "";
   }
+}
+
+export function formatApiBaseUrl(baseUrl: string): string {
+  return baseUrl || SAME_ORIGIN_API_BASE_LABEL;
 }
 
 export async function checkApiStatus(baseUrl: string): Promise<ApiStatus> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 3500);
   const checkedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const displayBaseUrl = formatApiBaseUrl(baseUrl);
 
   try {
     await requestJson<TaskListData>(baseUrl, API_STATUS_PROBE_PATH, { signal: controller.signal });
 
     return {
       state: "online",
-      baseUrl,
+      baseUrl: displayBaseUrl,
       checkedAt,
       message: "Backend answered the task-list probe. Studio can connect to live generation services.",
     };
@@ -144,7 +150,7 @@ export async function checkApiStatus(baseUrl: string): Promise<ApiStatus> {
 
     return {
       state: "offline",
-      baseUrl,
+      baseUrl: displayBaseUrl,
       checkedAt,
       message: isAbort
         ? "Backend check timed out after 3.5s. Start api.bat, then refresh status."

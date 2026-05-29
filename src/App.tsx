@@ -31,6 +31,7 @@ import type { ApiStatus, CreateVideoPayload, TaskData } from "./api";
 import {
   checkApiStatus,
   createVideo,
+  formatApiBaseUrl,
   generateScript,
   generateTerms,
   getApiBaseUrl,
@@ -104,7 +105,7 @@ export function App() {
   const [submittedTasks, setSubmittedTasks] = useState<SubmittedTask[]>([]);
   const [apiStatus, setApiStatus] = useState<ApiStatus>(() => ({
     state: "checking",
-    baseUrl: getApiBaseUrl(),
+    baseUrl: formatApiBaseUrl(getApiBaseUrl()),
     checkedAt: "--:--",
     message: "Checking backend reachability through the task-list probe.",
   }));
@@ -125,7 +126,7 @@ export function App() {
     const baseUrl = getApiBaseUrl();
     setApiStatus({
       state: "checking",
-      baseUrl,
+      baseUrl: formatApiBaseUrl(baseUrl),
       checkedAt: "--:--",
       message: "Checking backend reachability through the task-list probe.",
     });
