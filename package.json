@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "tsc -b && vite build",
-    "test:unit": "node --test src/outputUrl.test.mjs src/taskModel.test.mjs src/studioForm.test.mjs",
+    "test:unit": "node --test src/outputUrl.test.mjs src/taskModel.test.mjs src/studioForm.test.mjs src/api.test.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173"
   },
   "dependencies": {

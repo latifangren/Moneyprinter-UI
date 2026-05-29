@@ -1,4 +1,6 @@
 import { resolveTaskOutputUrl } from "./outputUrl";
+export { API_STATUS_PROBE_PATH, LOCAL_BACKEND_DEFAULT_URL, SAME_ORIGIN_API_BASE_LABEL } from "./apiSettings";
+import { API_STATUS_PROBE_PATH, SAME_ORIGIN_API_BASE_LABEL } from "./apiSettings";
 
 export type ApiStatusState = "checking" | "online" | "offline";
 
@@ -8,8 +10,6 @@ export type ApiStatus = {
   checkedAt: string;
   message: string;
 };
-
-const SAME_ORIGIN_API_BASE_LABEL = "same-origin dev proxy";
 
 type ApiEnvelope<TData> = {
   status: number;
@@ -96,17 +96,16 @@ export type TaskListData = {
 };
 
 export class ApiRequestError extends Error {
-  constructor(
-    message: string,
-    readonly statusCode?: number,
-    readonly apiStatus?: number,
-  ) {
+  readonly statusCode?: number;
+  readonly apiStatus?: number;
+
+  constructor(message: string, statusCode?: number, apiStatus?: number) {
     super(message);
     this.name = "ApiRequestError";
+    this.statusCode = statusCode;
+    this.apiStatus = apiStatus;
   }
 }
-
-const API_STATUS_PROBE_PATH = "/api/v1/tasks?page=1&page_size=1";
 
 export function getApiBaseUrl(): string {
   return normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL ?? "");
