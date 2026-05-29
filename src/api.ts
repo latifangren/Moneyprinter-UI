@@ -1,3 +1,5 @@
+import { resolveTaskOutputUrl } from "./outputUrl";
+
 export type ApiStatusState = "checking" | "online" | "offline";
 
 export type ApiStatus = {
@@ -198,37 +200,7 @@ export function listTasks(page = 1, pageSize = 10, signal?: AbortSignal): Promis
 }
 
 export function resolveOutputUrl(outputPath: string, baseUrl = getApiBaseUrl()): string {
-  const normalizedPath = outputPath.trim().replaceAll("\\", "/");
-
-  if (!normalizedPath) {
-    return "";
-  }
-
-  const tasksIndex = normalizedPath.indexOf("/tasks/");
-  const storageTasksIndex = normalizedPath.indexOf("/storage/tasks/");
-  const taskRelativePath = getTaskOutputPath(normalizedPath, tasksIndex, storageTasksIndex);
-
-  if (!taskRelativePath) {
-    return new URL(normalizedPath).toString();
-  }
-
-  const pathWithLeadingSlash = taskRelativePath.startsWith("/") ? taskRelativePath : `/${taskRelativePath}`;
-  const outputPathWithMount = pathWithLeadingSlash.startsWith("/tasks/") ? pathWithLeadingSlash : `/tasks${pathWithLeadingSlash}`;
-
-  return `${baseUrl}${outputPathWithMount}`;
-}
-
-function getTaskOutputPath(normalizedPath: string, tasksIndex: number, storageTasksIndex: number): string {
-  if (storageTasksIndex >= 0) {
-    return normalizedPath.slice(storageTasksIndex + "/storage".length);
-  }
-  if (tasksIndex >= 0) {
-    return normalizedPath.slice(tasksIndex);
-  }
-  if (normalizedPath.startsWith("http://") || normalizedPath.startsWith("https://")) {
-    return "";
-  }
-  return normalizedPath;
+  return resolveTaskOutputUrl(outputPath, baseUrl);
 }
 
 async function requestJson<TData>(baseUrl: string, path: string, init: RequestInit = {}): Promise<TData> {
