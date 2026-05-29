@@ -2,6 +2,10 @@ import type { TaskData } from "./api";
 
 export type SubmittedTaskStatus = "submitted" | "processing" | "complete" | "failed" | "error" | "timeout";
 
+export type TaskStatusGroup = "active" | "complete" | "needs-attention";
+
+export type TaskStatusFilter = "all" | TaskStatusGroup;
+
 export type SubmittedTask = {
   taskId: string;
   subject: string;
@@ -15,6 +19,37 @@ export type SubmittedTask = {
 };
 
 export type TaskUpdate = Partial<Omit<SubmittedTask, "taskId" | "createdAt">>;
+
+export type TaskOutputSummary = {
+  outputs: string[];
+  combinedCount: number;
+  videoCount: number;
+  totalCount: number;
+  visibleOutputs: string[];
+  hiddenCount: number;
+};
+
+export type TaskFilters = {
+  query: string;
+  statusFilter: TaskStatusFilter;
+  hasOutputsOnly: boolean;
+};
+
+export type TaskStatusCounts = Record<TaskStatusFilter, number>;
+
+export type TaskGroup = {
+  id: TaskStatusGroup;
+  label: string;
+  tasks: SubmittedTask[];
+};
+
+export const TASK_GROUP_ORDER: TaskStatusGroup[] = ["active", "complete", "needs-attention"];
+
+const TASK_GROUP_LABELS: Record<TaskStatusGroup, string> = {
+  active: "Active",
+  complete: "Complete",
+  "needs-attention": "Needs attention",
+};
 
 export function createSubmittedTask(taskId: string, subject: string, status: SubmittedTaskStatus, progress: number, message: string): SubmittedTask {
   const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -87,6 +122,97 @@ export function taskStatusLabel(status: SubmittedTaskStatus): string {
   return labels[status];
 }
 
+export function clampTaskProgress(progress: number): number {
+  if (!Number.isFinite(progress)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(Math.round(progress), 100));
+}
+
+export function getTaskOutputSummary(task: SubmittedTask, visibleLimit = 3): TaskOutputSummary {
+  const combinedVideos = dedupeOutputPaths(task.combinedVideos);
+  const videos = dedupeOutputPaths(task.videos, new Set(combinedVideos.map(getOutputDedupeKey)));
+  const outputs = [...combinedVideos, ...videos];
+  const normalizedLimit = Math.max(0, Math.floor(visibleLimit));
+  const visibleOutputs = outputs.slice(0, normalizedLimit);
+
+  return {
+    outputs,
+    combinedCount: combinedVideos.length,
+    videoCount: videos.length,
+    totalCount: outputs.length,
+    visibleOutputs,
+    hiddenCount: Math.max(0, outputs.length - visibleOutputs.length),
+  };
+}
+
+export function taskMatchesQuery(task: SubmittedTask, query: string): boolean {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  const outputSummary = getTaskOutputSummary(task, Number.MAX_SAFE_INTEGER);
+  const searchText = [
+    task.subject,
+    task.taskId,
+    task.message,
+    ...outputSummary.outputs.map(getOutputFilename),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return searchText.includes(normalizedQuery);
+}
+
+export function getTaskStatusGroup(status: SubmittedTaskStatus): TaskStatusGroup {
+  if (status === "complete") {
+    return "complete";
+  }
+  if (status === "failed" || status === "error" || status === "timeout") {
+    return "needs-attention";
+  }
+  return "active";
+}
+
+export function filterTasks(tasks: SubmittedTask[], filters: TaskFilters): SubmittedTask[] {
+  return tasks.filter((task) => {
+    const statusMatches = filters.statusFilter === "all" || getTaskStatusGroup(task.status) === filters.statusFilter;
+    const outputMatches = !filters.hasOutputsOnly || getTaskOutputSummary(task).totalCount > 0;
+
+    return statusMatches && outputMatches && taskMatchesQuery(task, filters.query);
+  });
+}
+
+export function getTaskStatusCounts(tasks: SubmittedTask[]): TaskStatusCounts {
+  const counts: TaskStatusCounts = {
+    all: tasks.length,
+    active: 0,
+    complete: 0,
+    "needs-attention": 0,
+  };
+
+  for (const task of tasks) {
+    counts[getTaskStatusGroup(task.status)] += 1;
+  }
+
+  return counts;
+}
+
+export function groupTasksByStatus(tasks: SubmittedTask[]): TaskGroup[] {
+  return TASK_GROUP_ORDER.map((id) => ({
+    id,
+    label: TASK_GROUP_LABELS[id],
+    tasks: tasks.filter((task) => getTaskStatusGroup(task.status) === id),
+  })).filter((group) => group.tasks.length > 0);
+}
+
+export function getOutputFilename(outputPath: string): string {
+  const normalizedPath = outputPath.replaceAll("\\", "/");
+  return normalizedPath.split("/").filter(Boolean).at(-1) ?? "Open output";
+}
+
 function getSubmittedTaskStatus(state: number): SubmittedTaskStatus {
   if (state === 1) {
     return "complete";
@@ -114,4 +240,33 @@ function getTaskMessage(task: TaskData, status: SubmittedTaskStatus): string {
     return "Generation failed.";
   }
   return "Generation is running.";
+}
+
+function dedupeOutputPaths(outputPaths: string[], seenKeys = new Set<string>()): string[] {
+  const outputs: string[] = [];
+
+  for (const outputPath of outputPaths) {
+    const dedupeKey = getOutputDedupeKey(outputPath);
+    if (!dedupeKey || seenKeys.has(dedupeKey)) {
+      continue;
+    }
+    seenKeys.add(dedupeKey);
+    outputs.push(outputPath);
+  }
+
+  return outputs;
+}
+
+function getOutputDedupeKey(outputPath: string): string {
+  const normalizedPath = outputPath.trim().replaceAll("\\", "/").toLowerCase();
+  const storageTasksIndex = normalizedPath.indexOf("/storage/tasks/");
+  const tasksIndex = normalizedPath.indexOf("/tasks/");
+
+  if (storageTasksIndex >= 0) {
+    return normalizedPath.slice(storageTasksIndex + "/storage/".length);
+  }
+  if (tasksIndex >= 0) {
+    return normalizedPath.slice(tasksIndex + 1);
+  }
+  return normalizedPath.replace(/^\/+/, "");
 }
