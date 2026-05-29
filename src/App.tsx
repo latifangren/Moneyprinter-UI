@@ -267,7 +267,7 @@ function DashboardPage({ status, onRefresh }: { status: ApiStatus; onRefresh: ()
     <>
       <section className="hero-card panel-card">
         <div>
-          <p className="eyebrow">Polished light-mode command center</p>
+          <p className="eyebrow">Dark cinematic command studio</p>
           <h3>Plan, queue, and track AI video stories from one creator cockpit.</h3>
           <p className="hero-copy">
             Phase 2 connects Create Studio to live MoneyPrinterTurbo endpoints for script, terms, render submission,
