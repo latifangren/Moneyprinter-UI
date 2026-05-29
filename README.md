@@ -56,11 +56,15 @@ python main.py
 uv run python main.py
 ```
 
-Default backend address used by this UI:
+During local development, browser calls default to same-origin dev proxy:
 
 ```text
-http://127.0.0.1:8080
+same-origin dev proxy
 ```
+
+Vite forwards matching `/api/*` and `/tasks/*` requests to the local MoneyPrinterTurbo backend at `http://127.0.0.1:8080` without rewriting path prefixes.
+
+If you are not using the dev proxy, set `VITE_API_BASE_URL` to the backend origin you want the browser to call directly.
 
 Once backend is up, API docs are usually available at:
 
@@ -76,7 +80,7 @@ From `Moneyprinter-UI/`:
 npm install
 ```
 
-Optional, copy environment example:
+Optional, copy environment example if you want to call a backend origin directly instead of using the local dev proxy:
 
 ```bash
 cp .env.example .env
@@ -104,7 +108,7 @@ Current package scripts:
 
 | Script | Command | Purpose |
 | --- | --- | --- |
-| `dev` | `vite --host 127.0.0.1 --port 5173` | Local development server |
+| `dev` | `vite --host 127.0.0.1 --port 5173` | Local development server with `/api` and `/tasks` proxy |
 | `build` | `tsc -b && vite build` | Type check and production build |
 | `preview` | `vite preview --host 127.0.0.1 --port 4173` | Preview built app |
 
@@ -113,13 +117,21 @@ Current package scripts:
 Example `.env.example`:
 
 ```env
-VITE_API_BASE_URL=http://127.0.0.1:8080
+# Optional: set this only when the browser should call a backend origin directly.
+# Leave unset during local Vite development to use the /api and /tasks dev proxy.
+# VITE_API_BASE_URL=http://127.0.0.1:8080
 ```
 
-Recommended local setting:
+Recommended direct-backend setting for non-proxy use:
 
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:8080
+```
+
+Example remote setting:
+
+```env
+VITE_API_BASE_URL=https://example.com
 ```
 
 Important note:
@@ -128,7 +140,7 @@ Important note:
 - Treat them as public configuration, not secrets
 - Don't put API keys, tokens, or private credentials in Vite env variables meant for browser code
 
-If `VITE_API_BASE_URL` is empty or invalid, app falls back to `http://127.0.0.1:8080`.
+If `VITE_API_BASE_URL` is empty or invalid, app falls back to same-origin requests, which work with the Vite dev proxy.
 
 ## API Integration
 
@@ -211,7 +223,7 @@ That matters because:
 
 - Parent bundle can start backend with `api.bat`
 - Bundled backend checkout lives in sibling `MoneyPrinterTurbo/`
-- UI default API target matches local FastAPI default at `http://127.0.0.1:8080`
+- Vite dev proxy target matches local FastAPI default at `http://127.0.0.1:8080`
 
 For non-portable use, point `VITE_API_BASE_URL` at any reachable MoneyPrinterTurbo backend instance.
 
@@ -249,6 +261,7 @@ Compatibility note:
 ## Development Notes
 
 - API base URL normalization lives in `src/api.ts`
+- Same-origin is the default browser request path in dev when `VITE_API_BASE_URL` is unset or blank
 - Backend reachability probe uses `GET /api/v1/tasks?page=1&page_size=1`
 - Output links are normalized to backend `/tasks/...` paths before preview
 - Create Studio polling runs on interval and stops after capped attempts if task never resolves
