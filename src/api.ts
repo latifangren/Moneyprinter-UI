@@ -204,20 +204,31 @@ export function resolveOutputUrl(outputPath: string, baseUrl = getApiBaseUrl()):
     return "";
   }
 
-  try {
+  const tasksIndex = normalizedPath.indexOf("/tasks/");
+  const storageTasksIndex = normalizedPath.indexOf("/storage/tasks/");
+  const taskRelativePath = getTaskOutputPath(normalizedPath, tasksIndex, storageTasksIndex);
+
+  if (!taskRelativePath) {
     return new URL(normalizedPath).toString();
-  } catch (error) {
-    if (!(error instanceof TypeError)) {
-      throw error;
-    }
   }
 
-  const tasksIndex = normalizedPath.indexOf("/tasks/");
-  const taskRelativePath = tasksIndex >= 0 ? normalizedPath.slice(tasksIndex) : normalizedPath;
   const pathWithLeadingSlash = taskRelativePath.startsWith("/") ? taskRelativePath : `/${taskRelativePath}`;
   const outputPathWithMount = pathWithLeadingSlash.startsWith("/tasks/") ? pathWithLeadingSlash : `/tasks${pathWithLeadingSlash}`;
 
   return `${baseUrl}${outputPathWithMount}`;
+}
+
+function getTaskOutputPath(normalizedPath: string, tasksIndex: number, storageTasksIndex: number): string {
+  if (storageTasksIndex >= 0) {
+    return normalizedPath.slice(storageTasksIndex + "/storage".length);
+  }
+  if (tasksIndex >= 0) {
+    return normalizedPath.slice(tasksIndex);
+  }
+  if (normalizedPath.startsWith("http://") || normalizedPath.startsWith("https://")) {
+    return "";
+  }
+  return normalizedPath;
 }
 
 async function requestJson<TData>(baseUrl: string, path: string, init: RequestInit = {}): Promise<TData> {
