@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RotateCcw, Save, Undo2 } from "lucide-react";
-import type { ApiStatus } from "../api";
+import type { ApiStatus, BackendOptionsData } from "../api";
+import { getOptions } from "../api";
+import { getErrorMessage } from "../apiErrors";
 import { API_STATUS_PROBE_PATH, LOCAL_BACKEND_DEFAULT_URL, SAME_ORIGIN_API_BASE_LABEL } from "../apiSettings";
 import { ApiStatusCard } from "../components/ApiStatusCard";
 import {
   APP_DEFAULT_STUDIO_SETTINGS,
   STUDIO_DEFAULTS_STORAGE_KEY,
-  VIDEO_ASPECT_OPTIONS,
-  VIDEO_SOURCE_OPTIONS,
   clearStoredStudioDefaultSettings,
   clampNumber,
   formatVideoAspectLabel,
@@ -19,6 +19,12 @@ import {
   type StudioVideoAspect,
   type StudioVideoSource,
 } from "../studioForm";
+import {
+  ensureSelectedOption,
+  ensureSelectedVoiceGroup,
+  getFirstVoice,
+  normalizeStudioOptions,
+} from "../studioOptions";
 
 type SettingsPageProps = {
   status: ApiStatus;
@@ -44,7 +50,58 @@ export function SettingsPage({ status, onRefresh }: SettingsPageProps) {
   const [subtitleEnabled, setSubtitleEnabled] = useState(initialStudioDefaults.settings.subtitleEnabled);
   const [storageState, setStorageState] = useState<SettingsStorageState>(initialStudioDefaults.storageState);
   const [settingsMessage, setSettingsMessage] = useState(initialStudioDefaults.message);
+  const [optionsData, setOptionsData] = useState<BackendOptionsData | null>(null);
+  const [optionsError, setOptionsError] = useState("");
+  const selectedOptionsRef = useRef({ videoAspect, videoSource, voiceName });
   const storageBadgeClass = storageState === "saved" ? "status-online" : storageState === "corrupt" || storageState === "unavailable" ? "status-offline" : "status-checking";
+  const backendReady = status.state === "online";
+  const studioOptions = useMemo(() => normalizeStudioOptions(optionsData), [optionsData]);
+  const languageOptions = useMemo(
+    () => ensureSelectedOption(studioOptions.languages, language, "Current language"),
+    [language, studioOptions.languages],
+  );
+  const voiceGroups = useMemo(
+    () => ensureSelectedVoiceGroup(studioOptions.voiceGroups, voiceName),
+    [studioOptions.voiceGroups, voiceName],
+  );
+
+  useEffect(() => {
+    selectedOptionsRef.current = { videoAspect, videoSource, voiceName };
+  }, [videoAspect, videoSource, voiceName]);
+
+  useEffect(() => {
+    if (!backendReady) {
+      setOptionsData(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setOptionsError("");
+
+    getOptions(controller.signal)
+      .then((data) => {
+        setOptionsData(data);
+        const nextOptions = normalizeStudioOptions(data);
+        const selectedOptions = selectedOptionsRef.current;
+        if (!nextOptions.videoAspects.includes(selectedOptions.videoAspect)) {
+          setVideoAspect(nextOptions.videoAspects[0]);
+        }
+        if (!nextOptions.videoSources.includes(selectedOptions.videoSource)) {
+          setVideoSource(nextOptions.videoSources[0]);
+        }
+        if (!nextOptions.voiceGroups.some((group) => group.voices.includes(selectedOptions.voiceName))) {
+          setVoiceName(getFirstVoice(nextOptions.voiceGroups));
+        }
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setOptionsData(null);
+          setOptionsError(getErrorMessage(error));
+        }
+      });
+
+    return () => controller.abort();
+  }, [backendReady]);
 
   function getCurrentDefaults(): StudioDefaultSettings {
     return {
@@ -181,7 +238,15 @@ export function SettingsPage({ status, onRefresh }: SettingsPageProps) {
           <div className="form-grid compact-form-grid">
             <label htmlFor="settings-language">
               Language
-              <input id="settings-language" value={language} onChange={(event) => setLanguage(event.target.value)} placeholder="en" />
+              {optionsError ? (
+                <input id="settings-language" value={language} onChange={(event) => setLanguage(event.target.value)} placeholder="en" />
+              ) : (
+                <select id="settings-language" value={language} onChange={(event) => setLanguage(event.target.value)}>
+                  {languageOptions.map((option) => (
+                    <option value={option.value} key={option.value || "auto"}>{option.label}</option>
+                  ))}
+                </select>
+              )}
             </label>
             <label htmlFor="settings-paragraphs">
               Paragraphs
@@ -211,7 +276,7 @@ export function SettingsPage({ status, onRefresh }: SettingsPageProps) {
             <label htmlFor="settings-video-aspect">
               Aspect
               <select id="settings-video-aspect" value={videoAspect} onChange={(event) => setVideoAspect(event.target.value as StudioVideoAspect)}>
-                {VIDEO_ASPECT_OPTIONS.map((option) => (
+                {studioOptions.videoAspects.map((option) => (
                   <option value={option} key={option}>{formatVideoAspectLabel(option)}</option>
                 ))}
               </select>
@@ -219,16 +284,34 @@ export function SettingsPage({ status, onRefresh }: SettingsPageProps) {
             <label htmlFor="settings-video-source">
               Source
               <select id="settings-video-source" value={videoSource} onChange={(event) => setVideoSource(event.target.value as StudioVideoSource)}>
-                {VIDEO_SOURCE_OPTIONS.map((option) => (
+                {studioOptions.videoSources.map((option) => (
                   <option value={option} key={option}>{formatVideoSourceLabel(option)}</option>
                 ))}
               </select>
             </label>
             <label htmlFor="settings-voice-name">
               Voice
-              <input id="settings-voice-name" value={voiceName} onChange={(event) => setVoiceName(event.target.value)} />
+              {optionsError ? (
+                <input id="settings-voice-name" value={voiceName} onChange={(event) => setVoiceName(event.target.value)} />
+              ) : (
+                <select id="settings-voice-name" value={voiceName} onChange={(event) => setVoiceName(event.target.value)}>
+                  {voiceGroups.map((group) => (
+                    <optgroup label={group.label} key={group.id}>
+                      {group.voices.map((voice) => (
+                        <option value={voice} key={`${group.id}:${voice}`}>{voice}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              )}
             </label>
           </div>
+
+          <p className={`form-alert ${optionsError ? "form-alert-error" : "form-alert-info"}`}>
+            {optionsError
+              ? `Options metadata unavailable, manual fallback active: ${optionsError}`
+              : `Language, voice, aspect, and source choices use ${studioOptions.metadataSource === "backend" ? "/api/v1/options" : "local fallback"}.`}
+          </p>
 
           <label className="toggle-row" htmlFor="settings-subtitle-enabled">
             <span>

@@ -1,6 +1,6 @@
-import { resolveTaskOutputUrl } from "./outputUrl";
-export { API_STATUS_PROBE_PATH, LOCAL_BACKEND_DEFAULT_URL, SAME_ORIGIN_API_BASE_LABEL } from "./apiSettings";
-import { API_STATUS_PROBE_PATH, SAME_ORIGIN_API_BASE_LABEL } from "./apiSettings";
+import { resolveTaskOutputUrl } from "./outputUrl.ts";
+export { API_STATUS_PROBE_PATH, LOCAL_BACKEND_DEFAULT_URL, SAME_ORIGIN_API_BASE_LABEL } from "./apiSettings.ts";
+import { API_STATUS_PROBE_PATH, SAME_ORIGIN_API_BASE_LABEL } from "./apiSettings.ts";
 
 export type ApiStatusState = "checking" | "online" | "offline";
 
@@ -95,6 +95,24 @@ export type TaskListData = {
   page_size: number;
 };
 
+export type BackendOption = {
+  label?: string | null;
+  value?: string | null;
+};
+
+export type BackendOptionsData = {
+  languages?: BackendOption[];
+  voice_providers?: BackendOption[];
+  voices?: Record<string, string[]>;
+  video_aspects?: BackendOption[];
+  video_sources?: BackendOption[];
+  video_concat_modes?: BackendOption[];
+  video_transition_modes?: BackendOption[];
+  subtitle_positions?: BackendOption[];
+  fonts?: { name?: string; file?: string; size?: number }[];
+  bgm_files?: { name?: string; file?: string; size?: number }[];
+};
+
 export class ApiRequestError extends Error {
   readonly statusCode?: number;
   readonly apiStatus?: number;
@@ -108,7 +126,7 @@ export class ApiRequestError extends Error {
 }
 
 export function getApiBaseUrl(): string {
-  return normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL ?? "");
+  return normalizeApiBaseUrl(import.meta.env?.VITE_API_BASE_URL ?? "");
 }
 
 export function normalizeApiBaseUrl(rawValue: string): string {
@@ -196,6 +214,10 @@ export function listTasks(page = 1, pageSize = 10, signal?: AbortSignal): Promis
     `/api/v1/tasks?page=${encodeURIComponent(String(page))}&page_size=${encodeURIComponent(String(pageSize))}`,
     { signal },
   );
+}
+
+export function getOptions(signal?: AbortSignal): Promise<BackendOptionsData> {
+  return requestJson<BackendOptionsData>(getApiBaseUrl(), "/api/v1/options", { signal });
 }
 
 export function resolveOutputUrl(outputPath: string, baseUrl = getApiBaseUrl()): string {

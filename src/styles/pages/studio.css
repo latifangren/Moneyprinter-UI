@@ -229,6 +229,12 @@
   background: rgba(255, 181, 71, 0.08);
 }
 
+.notice-info {
+  color: var(--accent-primary-strong);
+  border-color: rgba(94, 183, 255, 0.28);
+  background: var(--accent-primary-dim);
+}
+
 .spin-icon {
   animation: icon-spin 0.9s linear infinite;
 }
@@ -255,4 +261,3 @@
   font-family: var(--font-mono);
   font-weight: 800;
 }
-

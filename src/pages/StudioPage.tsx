@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Loader2, PlayCircle, RotateCcw, Save, Sparkles, Undo2, Wand2 } from "lucide-react";
-import type { ApiStatus, CreateVideoPayload } from "../api";
-import { createVideo, generateScript, generateTerms, getTask } from "../api";
+import type { ApiStatus, BackendOptionsData, CreateVideoPayload } from "../api";
+import { createVideo, generateScript, generateTerms, getOptions, getTask } from "../api";
 import { getErrorMessage } from "../apiErrors";
 import { OutputInspectorDialog } from "../components/OutputInspectorDialog";
 import { TaskOutputs } from "../components/TaskOutputs";
@@ -17,13 +17,17 @@ import {
   loadStoredStudioDefaultSettings,
   parseTerms,
   saveStoredStudioDefaultSettings,
-  VIDEO_ASPECT_OPTIONS,
-  VIDEO_SOURCE_OPTIONS,
   type StudioDefaultSettings,
   type StudioDefaultsLoadResult,
   type StudioVideoAspect,
   type StudioVideoSource,
 } from "../studioForm";
+import {
+  ensureSelectedOption,
+  ensureSelectedVoiceGroup,
+  getFirstVoice,
+  normalizeStudioOptions,
+} from "../studioOptions";
 import {
   createSubmittedTask,
   taskStatusLabel,
@@ -54,6 +58,8 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
   const [subtitleEnabled, setSubtitleEnabled] = useState(initialStudioDefaults.settings.subtitleEnabled);
   const [studioMessage, setStudioMessage] = useState(initialStudioDefaults.message ?? "");
   const [studioError, setStudioError] = useState("");
+  const [optionsData, setOptionsData] = useState<BackendOptionsData | null>(null);
+  const [optionsError, setOptionsError] = useState("");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [isGeneratingTerms, setIsGeneratingTerms] = useState(false);
   const [isSubmittingVideo, setIsSubmittingVideo] = useState(false);
@@ -61,6 +67,17 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
   const [inspectorSelection, setInspectorSelection] = useState<OutputInspectSelection | null>(null);
   const pollControllerRef = useRef<AbortController | null>(null);
   const pollGenerationRef = useRef(0);
+  const selectedOptionsRef = useRef({ aspect, videoSource, voiceName });
+
+  const studioOptions = useMemo(() => normalizeStudioOptions(optionsData), [optionsData]);
+  const languageOptions = useMemo(
+    () => ensureSelectedOption(studioOptions.languages, language, "Current language"),
+    [language, studioOptions.languages],
+  );
+  const voiceGroups = useMemo(
+    () => ensureSelectedVoiceGroup(studioOptions.voiceGroups, voiceName),
+    [studioOptions.voiceGroups, voiceName],
+  );
 
   const backendReady = status.state === "online";
   const subjectReady = subject.trim().length > 0;
@@ -79,6 +96,44 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
       pollControllerRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    selectedOptionsRef.current = { aspect, videoSource, voiceName };
+  }, [aspect, videoSource, voiceName]);
+
+  useEffect(() => {
+    if (!backendReady) {
+      setOptionsData(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setOptionsError("");
+
+    getOptions(controller.signal)
+      .then((data) => {
+        setOptionsData(data);
+        const nextOptions = normalizeStudioOptions(data);
+        const selectedOptions = selectedOptionsRef.current;
+        if (!nextOptions.videoAspects.includes(selectedOptions.aspect)) {
+          setAspect(nextOptions.videoAspects[0]);
+        }
+        if (!nextOptions.videoSources.includes(selectedOptions.videoSource)) {
+          setVideoSource(nextOptions.videoSources[0]);
+        }
+        if (!nextOptions.voiceGroups.some((group) => group.voices.includes(selectedOptions.voiceName))) {
+          setVoiceName(getFirstVoice(nextOptions.voiceGroups));
+        }
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setOptionsData(null);
+          setOptionsError(getErrorMessage(error));
+        }
+      });
+
+    return () => controller.abort();
+  }, [backendReady]);
 
   async function handleGenerateScript() {
     if (!backendReady || !subjectReady) {
@@ -363,6 +418,16 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
               <span>Backend is not ready. Start `api.bat`, refresh status, then run generation actions.</span>
             </div>
           ) : null}
+          {backendReady ? (
+            <div className={`notice-card ${optionsError ? "notice-warning" : "notice-info"}`} role="status">
+              <AlertCircle size={18} aria-hidden="true" />
+              <span>
+                {optionsError
+                  ? `Options metadata unavailable, using safe fallback fields: ${optionsError}`
+                  : `Options loaded from ${studioOptions.metadataSource === "backend" ? "/api/v1/options" : "local fallback"}.`}
+              </span>
+            </div>
+          ) : null}
         </div>
         <div className="prompt-card studio-form">
           <section className="studio-defaults-panel" aria-labelledby="studio-defaults-heading">
@@ -397,7 +462,15 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
           <div className="form-grid compact-form-grid">
             <label htmlFor="story-language">
               Language
-              <input id="story-language" value={language} onChange={(event) => setLanguage(event.target.value)} placeholder="en" />
+              {optionsError ? (
+                <input id="story-language" value={language} onChange={(event) => setLanguage(event.target.value)} placeholder="en" />
+              ) : (
+                <select id="story-language" value={language} onChange={(event) => setLanguage(event.target.value)}>
+                  {languageOptions.map((option) => (
+                    <option value={option.value} key={option.value || "auto"}>{option.label}</option>
+                  ))}
+                </select>
+              )}
             </label>
             <label htmlFor="story-paragraphs">
               Paragraphs
@@ -465,7 +538,7 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
             <label htmlFor="video-aspect">
               Aspect
               <select id="video-aspect" value={aspect} onChange={(event) => setAspect(event.target.value as StudioVideoAspect)}>
-                {VIDEO_ASPECT_OPTIONS.map((option) => (
+                {studioOptions.videoAspects.map((option) => (
                   <option value={option} key={option}>{formatVideoAspectLabel(option)}</option>
                 ))}
               </select>
@@ -473,14 +546,26 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
             <label htmlFor="video-source">
               Source
               <select id="video-source" value={videoSource} onChange={(event) => setVideoSource(event.target.value as StudioVideoSource)}>
-                {VIDEO_SOURCE_OPTIONS.map((option) => (
+                {studioOptions.videoSources.map((option) => (
                   <option value={option} key={option}>{formatVideoSourceLabel(option)}</option>
                 ))}
               </select>
             </label>
             <label htmlFor="voice-name">
               Voice
-              <input id="voice-name" value={voiceName} onChange={(event) => setVoiceName(event.target.value)} />
+              {optionsError ? (
+                <input id="voice-name" value={voiceName} onChange={(event) => setVoiceName(event.target.value)} />
+              ) : (
+                <select id="voice-name" value={voiceName} onChange={(event) => setVoiceName(event.target.value)}>
+                  {voiceGroups.map((group) => (
+                    <optgroup label={group.label} key={group.id}>
+                      {group.voices.map((voice) => (
+                        <option value={voice} key={`${group.id}:${voice}`}>{voice}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              )}
             </label>
           </div>
 
