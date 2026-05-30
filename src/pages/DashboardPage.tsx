@@ -1,14 +1,15 @@
 import { CheckCircle2, PlayCircle, UploadCloud } from "lucide-react";
 import type { ApiStatus } from "../api";
 import { ApiStatusCard } from "../components/ApiStatusCard";
-import { DASHBOARD_METRICS } from "../content";
+import { DASHBOARD_METRICS, type PageId } from "../content";
 
 type DashboardPageProps = {
   status: ApiStatus;
   onRefresh: () => Promise<void>;
+  onNavigate: (pageId: PageId) => void;
 };
 
-export function DashboardPage({ status, onRefresh }: DashboardPageProps) {
+export function DashboardPage({ status, onRefresh, onNavigate }: DashboardPageProps) {
   return (
     <>
       <section className="hero-card panel-card">
@@ -20,11 +21,11 @@ export function DashboardPage({ status, onRefresh }: DashboardPageProps) {
             progress polling, and output previews.
           </p>
           <div className="hero-actions">
-            <button className="primary-action" type="button">
+            <button className="primary-action" type="button" onClick={() => onNavigate("studio")}>
               <PlayCircle size={18} />
               Start a concept
             </button>
-            <button className="secondary-action" type="button">
+            <button className="secondary-action" type="button" onClick={() => onNavigate("assets")}>
               <UploadCloud size={18} />
               Import assets
             </button>

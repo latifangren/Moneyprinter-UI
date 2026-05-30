@@ -174,7 +174,7 @@ export function App() {
         </header>
 
         <section className="content-grid" aria-live="polite">
-          {activePage === "dashboard" ? <DashboardPage status={apiStatus} onRefresh={refreshApiStatus} /> : null}
+          {activePage === "dashboard" ? <DashboardPage status={apiStatus} onRefresh={refreshApiStatus} onNavigate={navigateTo} /> : null}
           {activePage === "studio" ? <StudioPage status={apiStatus} onTaskChange={upsertSubmittedTask} /> : null}
           {activePage === "tasks" ? <TasksPage status={apiStatus} submittedTasks={submittedTasks} /> : null}
           {activePage === "assets" ? <AssetsPage status={apiStatus} submittedTasks={submittedTasks} /> : null}
