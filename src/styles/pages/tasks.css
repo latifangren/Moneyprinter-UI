@@ -164,19 +164,32 @@
 }
 
 .progress-track {
+  display: block;
+  width: 100%;
   height: 0.45rem;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
   background: var(--bg-control);
+  appearance: none;
 }
 
-.progress-track span {
-  display: block;
+.progress-track::-webkit-progress-bar {
+  border-radius: inherit;
+  background: var(--bg-control);
+}
+
+.progress-track::-webkit-progress-value {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--accent-primary), var(--accent-primary-strong));
   transition: width var(--motion-base);
+}
+
+.progress-track::-moz-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-primary-strong));
 }
 
 .progress-meta {
@@ -193,4 +206,3 @@
   font-family: var(--font-mono);
   font-weight: 800;
 }
-
