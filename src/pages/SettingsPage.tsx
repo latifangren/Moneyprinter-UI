@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 import { RotateCcw, Save, Undo2 } from "lucide-react";
 import type { ApiStatus, BackendOptionsData } from "../api";
 import { getOptions } from "../api";
@@ -22,7 +22,7 @@ import {
 import {
   ensureSelectedOption,
   ensureSelectedVoiceGroup,
-  getFirstVoice,
+  getEffectiveStudioOptionSelections,
   normalizeStudioOptions,
 } from "../studioOptions";
 
@@ -39,6 +39,32 @@ type SettingsStorageSnapshot = {
   message: string;
 };
 
+type OptionsFetchStatus = "idle" | "loading" | "loaded" | "error";
+
+type OptionsFetchState = {
+  status: OptionsFetchStatus;
+  data: BackendOptionsData | null;
+  error: string;
+};
+
+type OptionsFetchAction =
+  | { type: "loading" }
+  | { type: "loaded"; data: BackendOptionsData }
+  | { type: "error"; error: string };
+
+const INITIAL_OPTIONS_FETCH_STATE: OptionsFetchState = { status: "idle", data: null, error: "" };
+
+function optionsFetchReducer(_state: OptionsFetchState, action: OptionsFetchAction): OptionsFetchState {
+  switch (action.type) {
+    case "loading":
+      return { status: "loading", data: null, error: "" };
+    case "loaded":
+      return { status: "loaded", data: action.data, error: "" };
+    case "error":
+      return { status: "error", data: null, error: action.error };
+  }
+}
+
 export function SettingsPage({ status, onRefresh }: SettingsPageProps) {
   const [initialStudioDefaults] = useState<SettingsStorageSnapshot>(() => getInitialStudioDefaults());
   const [language, setLanguage] = useState(initialStudioDefaults.settings.videoLanguage);
@@ -50,53 +76,42 @@ export function SettingsPage({ status, onRefresh }: SettingsPageProps) {
   const [subtitleEnabled, setSubtitleEnabled] = useState(initialStudioDefaults.settings.subtitleEnabled);
   const [storageState, setStorageState] = useState<SettingsStorageState>(initialStudioDefaults.storageState);
   const [settingsMessage, setSettingsMessage] = useState(initialStudioDefaults.message);
-  const [optionsData, setOptionsData] = useState<BackendOptionsData | null>(null);
-  const [optionsError, setOptionsError] = useState("");
-  const selectedOptionsRef = useRef({ videoAspect, videoSource, voiceName });
+  const [optionsFetchState, dispatchOptionsFetch] = useReducer(optionsFetchReducer, INITIAL_OPTIONS_FETCH_STATE);
   const storageBadgeClass = storageState === "saved" ? "status-online" : storageState === "corrupt" || storageState === "unavailable" ? "status-offline" : "status-checking";
   const backendReady = status.state === "online";
+  const optionsFetchStatus = backendReady ? optionsFetchState.status : "idle";
+  const optionsLoaded = optionsFetchStatus === "loaded";
+  const optionsError = optionsFetchStatus === "error" ? optionsFetchState.error : "";
+  const optionsData = optionsLoaded ? optionsFetchState.data : null;
   const studioOptions = useMemo(() => normalizeStudioOptions(optionsData), [optionsData]);
+  const effectiveOptions = getEffectiveStudioOptionSelections(studioOptions, { videoAspect, videoSource, voiceName });
+  const selectedVideoAspect = optionsLoaded || optionsError ? effectiveOptions.videoAspect : videoAspect;
+  const selectedVideoSource = optionsLoaded || optionsError ? effectiveOptions.videoSource : videoSource;
+  const selectedVoiceName = optionsLoaded ? effectiveOptions.voiceName : voiceName;
   const languageOptions = useMemo(
     () => ensureSelectedOption(studioOptions.languages, language, "Current language"),
     [language, studioOptions.languages],
   );
   const voiceGroups = useMemo(
-    () => ensureSelectedVoiceGroup(studioOptions.voiceGroups, voiceName),
-    [studioOptions.voiceGroups, voiceName],
+    () => ensureSelectedVoiceGroup(studioOptions.voiceGroups, selectedVoiceName),
+    [selectedVoiceName, studioOptions.voiceGroups],
   );
 
   useEffect(() => {
-    selectedOptionsRef.current = { videoAspect, videoSource, voiceName };
-  }, [videoAspect, videoSource, voiceName]);
-
-  useEffect(() => {
     if (!backendReady) {
-      setOptionsData(null);
       return;
     }
 
     const controller = new AbortController();
-    setOptionsError("");
+    dispatchOptionsFetch({ type: "loading" });
 
     getOptions(controller.signal)
       .then((data) => {
-        setOptionsData(data);
-        const nextOptions = normalizeStudioOptions(data);
-        const selectedOptions = selectedOptionsRef.current;
-        if (!nextOptions.videoAspects.includes(selectedOptions.videoAspect)) {
-          setVideoAspect(nextOptions.videoAspects[0]);
-        }
-        if (!nextOptions.videoSources.includes(selectedOptions.videoSource)) {
-          setVideoSource(nextOptions.videoSources[0]);
-        }
-        if (!nextOptions.voiceGroups.some((group) => group.voices.includes(selectedOptions.voiceName))) {
-          setVoiceName(getFirstVoice(nextOptions.voiceGroups));
-        }
+        dispatchOptionsFetch({ type: "loaded", data });
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) {
-          setOptionsData(null);
-          setOptionsError(getErrorMessage(error));
+          dispatchOptionsFetch({ type: "error", error: getErrorMessage(error) });
         }
       });
 
@@ -108,9 +123,9 @@ export function SettingsPage({ status, onRefresh }: SettingsPageProps) {
       videoLanguage: language,
       paragraphNumber,
       termsAmount,
-      voiceName,
-      videoAspect,
-      videoSource,
+      voiceName: selectedVoiceName,
+      videoAspect: selectedVideoAspect,
+      videoSource: selectedVideoSource,
       subtitleEnabled,
     };
   }
@@ -275,7 +290,7 @@ export function SettingsPage({ status, onRefresh }: SettingsPageProps) {
           <div className="form-grid compact-form-grid">
             <label htmlFor="settings-video-aspect">
               Aspect
-              <select id="settings-video-aspect" value={videoAspect} onChange={(event) => setVideoAspect(event.target.value as StudioVideoAspect)}>
+              <select id="settings-video-aspect" value={selectedVideoAspect} onChange={(event) => setVideoAspect(event.target.value as StudioVideoAspect)}>
                 {studioOptions.videoAspects.map((option) => (
                   <option value={option} key={option}>{formatVideoAspectLabel(option)}</option>
                 ))}
@@ -283,7 +298,7 @@ export function SettingsPage({ status, onRefresh }: SettingsPageProps) {
             </label>
             <label htmlFor="settings-video-source">
               Source
-              <select id="settings-video-source" value={videoSource} onChange={(event) => setVideoSource(event.target.value as StudioVideoSource)}>
+              <select id="settings-video-source" value={selectedVideoSource} onChange={(event) => setVideoSource(event.target.value as StudioVideoSource)}>
                 {studioOptions.videoSources.map((option) => (
                   <option value={option} key={option}>{formatVideoSourceLabel(option)}</option>
                 ))}
@@ -294,7 +309,7 @@ export function SettingsPage({ status, onRefresh }: SettingsPageProps) {
               {optionsError ? (
                 <input id="settings-voice-name" value={voiceName} onChange={(event) => setVoiceName(event.target.value)} />
               ) : (
-                <select id="settings-voice-name" value={voiceName} onChange={(event) => setVoiceName(event.target.value)}>
+                <select id="settings-voice-name" value={selectedVoiceName} onChange={(event) => setVoiceName(event.target.value)}>
                   {voiceGroups.map((group) => (
                     <optgroup label={group.label} key={group.id}>
                       {group.voices.map((voice) => (
@@ -310,7 +325,9 @@ export function SettingsPage({ status, onRefresh }: SettingsPageProps) {
           <p className={`form-alert ${optionsError ? "form-alert-error" : "form-alert-info"}`}>
             {optionsError
               ? `Options metadata unavailable, manual fallback active: ${optionsError}`
-              : `Language, voice, aspect, and source choices use ${studioOptions.metadataSource === "backend" ? "/api/v1/options" : "local fallback"}.`}
+              : optionsLoaded
+                ? "Language, voice, aspect, and source choices use /api/v1/options."
+                : "Loading options metadata from /api/v1/options..."}
           </p>
 
           <label className="toggle-row" htmlFor="settings-subtitle-enabled">

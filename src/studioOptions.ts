@@ -27,6 +27,12 @@ export type StudioOptions = {
   metadataSource: "backend" | "fallback";
 };
 
+export type StudioOptionSelections = {
+  videoAspect: StudioVideoAspect;
+  videoSource: StudioVideoSource;
+  voiceName: string;
+};
+
 const FALLBACK_PROVIDER_ID = "azure-tts-v1";
 
 export function normalizeStudioOptions(data?: BackendOptionsData | null): StudioOptions {
@@ -66,6 +72,19 @@ export function ensureSelectedVoiceGroup(groups: VoiceOptionGroup[], selectedVoi
 
 export function getFirstVoice(groups: VoiceOptionGroup[]): string {
   return groups.find((group) => group.voices.length > 0)?.voices[0] ?? DEFAULT_VOICE_NAME;
+}
+
+export function getEffectiveStudioOptionSelections(
+  options: StudioOptions,
+  selections: StudioOptionSelections,
+): StudioOptionSelections {
+  return {
+    videoAspect: options.videoAspects.includes(selections.videoAspect) ? selections.videoAspect : options.videoAspects[0],
+    videoSource: options.videoSources.includes(selections.videoSource) ? selections.videoSource : options.videoSources[0],
+    voiceName: options.voiceGroups.some((group) => group.voices.includes(selections.voiceName))
+      ? selections.voiceName
+      : getFirstVoice(options.voiceGroups),
+  };
 }
 
 function normalizeOptions(options: BackendOption[] | undefined, fallback: SelectOption[]): SelectOption[] {

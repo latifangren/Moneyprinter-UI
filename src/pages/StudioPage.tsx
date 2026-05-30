@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AlertCircle, Loader2, PlayCircle, RotateCcw, Save, Sparkles, Undo2, Wand2 } from "lucide-react";
 import type { ApiStatus, BackendOptionsData, CreateVideoPayload } from "../api";
 import { createVideo, generateScript, generateTerms, getOptions, getTask } from "../api";
@@ -25,7 +25,7 @@ import {
 import {
   ensureSelectedOption,
   ensureSelectedVoiceGroup,
-  getFirstVoice,
+  getEffectiveStudioOptionSelections,
   normalizeStudioOptions,
 } from "../studioOptions";
 import {
@@ -44,6 +44,32 @@ type StudioPageProps = {
   onTaskChange: (taskId: string, update: TaskUpdate & Pick<SubmittedTask, "subject">) => void;
 };
 
+type OptionsFetchStatus = "idle" | "loading" | "loaded" | "error";
+
+type OptionsFetchState = {
+  status: OptionsFetchStatus;
+  data: BackendOptionsData | null;
+  error: string;
+};
+
+type OptionsFetchAction =
+  | { type: "loading" }
+  | { type: "loaded"; data: BackendOptionsData }
+  | { type: "error"; error: string };
+
+const INITIAL_OPTIONS_FETCH_STATE: OptionsFetchState = { status: "idle", data: null, error: "" };
+
+function optionsFetchReducer(_state: OptionsFetchState, action: OptionsFetchAction): OptionsFetchState {
+  switch (action.type) {
+    case "loading":
+      return { status: "loading", data: null, error: "" };
+    case "loaded":
+      return { status: "loaded", data: action.data, error: "" };
+    case "error":
+      return { status: "error", data: null, error: action.error };
+  }
+}
+
 export function StudioPage({ status, onTaskChange }: StudioPageProps) {
   const [initialStudioDefaults] = useState<StudioDefaultsLoadResult>(() => getInitialStudioDefaults());
   const [subject, setSubject] = useState("");
@@ -58,8 +84,7 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
   const [subtitleEnabled, setSubtitleEnabled] = useState(initialStudioDefaults.settings.subtitleEnabled);
   const [studioMessage, setStudioMessage] = useState(initialStudioDefaults.message ?? "");
   const [studioError, setStudioError] = useState("");
-  const [optionsData, setOptionsData] = useState<BackendOptionsData | null>(null);
-  const [optionsError, setOptionsError] = useState("");
+  const [optionsFetchState, dispatchOptionsFetch] = useReducer(optionsFetchReducer, INITIAL_OPTIONS_FETCH_STATE);
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [isGeneratingTerms, setIsGeneratingTerms] = useState(false);
   const [isSubmittingVideo, setIsSubmittingVideo] = useState(false);
@@ -67,19 +92,26 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
   const [inspectorSelection, setInspectorSelection] = useState<OutputInspectSelection | null>(null);
   const pollControllerRef = useRef<AbortController | null>(null);
   const pollGenerationRef = useRef(0);
-  const selectedOptionsRef = useRef({ aspect, videoSource, voiceName });
 
+  const backendReady = status.state === "online";
+  const optionsFetchStatus = backendReady ? optionsFetchState.status : "idle";
+  const optionsLoaded = optionsFetchStatus === "loaded";
+  const optionsError = optionsFetchStatus === "error" ? optionsFetchState.error : "";
+  const optionsData = optionsLoaded ? optionsFetchState.data : null;
   const studioOptions = useMemo(() => normalizeStudioOptions(optionsData), [optionsData]);
+  const effectiveOptions = getEffectiveStudioOptionSelections(studioOptions, { videoAspect: aspect, videoSource, voiceName });
+  const selectedVideoAspect = optionsLoaded || optionsError ? effectiveOptions.videoAspect : aspect;
+  const selectedVideoSource = optionsLoaded || optionsError ? effectiveOptions.videoSource : videoSource;
+  const selectedVoiceName = optionsLoaded ? effectiveOptions.voiceName : voiceName;
   const languageOptions = useMemo(
     () => ensureSelectedOption(studioOptions.languages, language, "Current language"),
     [language, studioOptions.languages],
   );
   const voiceGroups = useMemo(
-    () => ensureSelectedVoiceGroup(studioOptions.voiceGroups, voiceName),
-    [studioOptions.voiceGroups, voiceName],
+    () => ensureSelectedVoiceGroup(studioOptions.voiceGroups, selectedVoiceName),
+    [selectedVoiceName, studioOptions.voiceGroups],
   );
 
-  const backendReady = status.state === "online";
   const subjectReady = subject.trim().length > 0;
   const scriptReady = script.trim().length > 0;
   const termsReady = terms.trim().length > 0;
@@ -101,37 +133,20 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
   }, []);
 
   useEffect(() => {
-    selectedOptionsRef.current = { aspect, videoSource, voiceName };
-  }, [aspect, videoSource, voiceName]);
-
-  useEffect(() => {
     if (!backendReady) {
-      setOptionsData(null);
       return;
     }
 
     const controller = new AbortController();
-    setOptionsError("");
+    dispatchOptionsFetch({ type: "loading" });
 
     getOptions(controller.signal)
       .then((data) => {
-        setOptionsData(data);
-        const nextOptions = normalizeStudioOptions(data);
-        const selectedOptions = selectedOptionsRef.current;
-        if (!nextOptions.videoAspects.includes(selectedOptions.aspect)) {
-          setAspect(nextOptions.videoAspects[0]);
-        }
-        if (!nextOptions.videoSources.includes(selectedOptions.videoSource)) {
-          setVideoSource(nextOptions.videoSources[0]);
-        }
-        if (!nextOptions.voiceGroups.some((group) => group.voices.includes(selectedOptions.voiceName))) {
-          setVoiceName(getFirstVoice(nextOptions.voiceGroups));
-        }
+        dispatchOptionsFetch({ type: "loaded", data });
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) {
-          setOptionsData(null);
-          setOptionsError(getErrorMessage(error));
+          dispatchOptionsFetch({ type: "error", error: getErrorMessage(error) });
         }
       });
 
@@ -289,9 +304,9 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
       videoLanguage: language,
       paragraphNumber,
       termsAmount,
-      voiceName,
-      videoAspect: aspect,
-      videoSource,
+      voiceName: selectedVoiceName,
+      videoAspect: selectedVideoAspect,
+      videoSource: selectedVideoSource,
       subtitleEnabled,
     };
   }
@@ -374,14 +389,14 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
       video_subject: subject.trim(),
       video_script: script.trim(),
       video_terms: parseTerms(terms),
-      video_aspect: aspect,
+      video_aspect: selectedVideoAspect,
       video_concat_mode: "random",
       video_transition_mode: null,
       video_clip_duration: 5,
       video_count: 1,
-      video_source: videoSource.trim(),
+      video_source: selectedVideoSource.trim(),
       video_language: language.trim(),
-      voice_name: voiceName.trim(),
+      voice_name: selectedVoiceName.trim(),
       voice_volume: 1,
       voice_rate: 1,
       bgm_type: "random",
@@ -427,7 +442,9 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
               <span>
                 {optionsError
                   ? `Options metadata unavailable, using safe fallback fields: ${optionsError}`
-                  : `Options loaded from ${studioOptions.metadataSource === "backend" ? "/api/v1/options" : "local fallback"}.`}
+                  : optionsLoaded
+                    ? "Options loaded from /api/v1/options."
+                    : "Loading options metadata from /api/v1/options..."}
               </span>
             </output>
           ) : null}
@@ -540,7 +557,7 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
           <div className="form-grid compact-form-grid">
             <label htmlFor="video-aspect">
               Aspect
-              <select id="video-aspect" value={aspect} onChange={(event) => setAspect(event.target.value as StudioVideoAspect)}>
+              <select id="video-aspect" value={selectedVideoAspect} onChange={(event) => setAspect(event.target.value as StudioVideoAspect)}>
                 {studioOptions.videoAspects.map((option) => (
                   <option value={option} key={option}>{formatVideoAspectLabel(option)}</option>
                 ))}
@@ -548,7 +565,7 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
             </label>
             <label htmlFor="video-source">
               Source
-              <select id="video-source" value={videoSource} onChange={(event) => setVideoSource(event.target.value as StudioVideoSource)}>
+              <select id="video-source" value={selectedVideoSource} onChange={(event) => setVideoSource(event.target.value as StudioVideoSource)}>
                 {studioOptions.videoSources.map((option) => (
                   <option value={option} key={option}>{formatVideoSourceLabel(option)}</option>
                 ))}
@@ -559,7 +576,7 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
               {optionsError ? (
                 <input id="voice-name" value={voiceName} onChange={(event) => setVoiceName(event.target.value)} />
               ) : (
-                <select id="voice-name" value={voiceName} onChange={(event) => setVoiceName(event.target.value)}>
+                <select id="voice-name" value={selectedVoiceName} onChange={(event) => setVoiceName(event.target.value)}>
                   {voiceGroups.map((group) => (
                     <optgroup label={group.label} key={group.id}>
                       {group.voices.map((voice) => (
