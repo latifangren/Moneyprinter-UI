@@ -94,11 +94,27 @@ function normalizeVoiceGroups(voices: Record<string, string[]> | undefined, prov
     return [];
   }
 
-  return Object.entries(voices)
-    .map(([id, providerVoices]) => ({
+  const voiceGroups: VoiceOptionGroup[] = [];
+
+  for (const [id, providerVoices] of Object.entries(voices)) {
+    const normalizedVoices = new Set<string>();
+
+    for (const voice of providerVoices) {
+      if (typeof voice === "string" && voice.trim()) {
+        normalizedVoices.add(voice.trim());
+      }
+    }
+
+    const group = {
       id,
       label: providerLabels.get(id) ?? id,
-      voices: [...new Set(providerVoices.filter((voice) => typeof voice === "string" && voice.trim()).map((voice) => voice.trim()))].sort(),
-    }))
-    .filter((group) => group.voices.length > 0);
+      voices: [...normalizedVoices].sort(),
+    };
+
+    if (group.voices.length > 0) {
+      voiceGroups.push(group);
+    }
+  }
+
+  return voiceGroups;
 }

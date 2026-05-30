@@ -54,8 +54,10 @@ export function formatTerms(videoTerms: string[] | string): string {
 export function parseTerms(value: string): string[] {
   return value
     .split(/[\n,]/)
-    .map((term) => term.trim())
-    .filter(Boolean);
+    .flatMap((term) => {
+      const trimmedTerm = term.trim();
+      return trimmedTerm ? [trimmedTerm] : [];
+    });
 }
 
 export function clampNumber(value: string, min: number, max: number): number {
