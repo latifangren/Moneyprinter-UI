@@ -24,6 +24,13 @@ type TasksPageProps = {
   submittedTasks: SubmittedTask[];
 };
 
+const FILTER_OPTIONS: { id: TaskStatusFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "active", label: "Active" },
+  { id: "complete", label: "Complete" },
+  { id: "needs-attention", label: "Needs attention" },
+];
+
 export function TasksPage({ status, submittedTasks }: TasksPageProps) {
   const [serverTasks, setServerTasks] = useState<SubmittedTask[]>([]);
   const [taskError, setTaskError] = useState("");
@@ -86,12 +93,6 @@ export function TasksPage({ status, submittedTasks }: TasksPageProps) {
     [hasOutputsOnly, mergedTasks, searchQuery, statusFilter],
   );
   const taskGroups = useMemo(() => groupTasksByStatus(filteredTasks), [filteredTasks]);
-  const filterOptions: { id: TaskStatusFilter; label: string }[] = [
-    { id: "all", label: "All" },
-    { id: "active", label: "Active" },
-    { id: "complete", label: "Complete" },
-    { id: "needs-attention", label: "Needs attention" },
-  ];
   const refreshStatus = backendReady ? `Auto-refresh every 5s${lastRefreshedAt ? `, last ${lastRefreshedAt}` : ""}` : "Auto-refresh paused while backend is offline";
 
   return (
@@ -114,7 +115,7 @@ export function TasksPage({ status, submittedTasks }: TasksPageProps) {
           <input value={searchQuery} type="search" placeholder="Search subject, ID, message, output" onChange={(event) => setSearchQuery(event.target.value)} />
         </label>
         <div className="task-filter-row">
-          {filterOptions.map((option) => (
+          {FILTER_OPTIONS.map((option) => (
             <button
               className={`status-chip task-filter-chip ${statusFilter === option.id ? "task-filter-chip-active" : ""}`}
               type="button"

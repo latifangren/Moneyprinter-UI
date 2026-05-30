@@ -201,11 +201,21 @@ export function getTaskStatusCounts(tasks: SubmittedTask[]): TaskStatusCounts {
 }
 
 export function groupTasksByStatus(tasks: SubmittedTask[]): TaskGroup[] {
-  return TASK_GROUP_ORDER.map((id) => ({
-    id,
-    label: TASK_GROUP_LABELS[id],
-    tasks: tasks.filter((task) => getTaskStatusGroup(task.status) === id),
-  })).filter((group) => group.tasks.length > 0);
+  const groups: TaskGroup[] = [];
+
+  for (const id of TASK_GROUP_ORDER) {
+    const groupTasks = tasks.filter((task) => getTaskStatusGroup(task.status) === id);
+
+    if (groupTasks.length > 0) {
+      groups.push({
+        id,
+        label: TASK_GROUP_LABELS[id],
+        tasks: groupTasks,
+      });
+    }
+  }
+
+  return groups;
 }
 
 export function getOutputFilename(outputPath: string): string {
