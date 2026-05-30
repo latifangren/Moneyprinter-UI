@@ -1,0 +1,57 @@
+.settings-card dl {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.settings-guidance-card,
+.settings-studio-card,
+.settings-defaults-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.settings-defaults-form label {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.settings-default-actions {
+  justify-content: flex-start;
+}
+
+.settings-storage-meta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-card dl > div {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-1);
+}
+
+.settings-card dt {
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.settings-card dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  word-break: break-word;
+}
+
+.mobile-menu,
+.close-sidebar,
+.sidebar-scrim {
+  display: none;
+}
+
