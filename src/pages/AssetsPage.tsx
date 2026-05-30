@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { ExternalLink, FileVideo, FolderOpen, Loader2, RefreshCcw, ScanSearch, Search } from "lucide-react";
 import type { ApiStatus } from "../api";
 import { getApiBaseUrl, listTasks, resolveOutputUrl } from "../api";
@@ -27,6 +27,26 @@ type AssetsPageProps = {
   submittedTasks: SubmittedTask[];
 };
 
+type AssetServerState = {
+  serverTasks: SubmittedTask[];
+  assetError: string;
+  isLoadingAssets: boolean;
+  lastRefreshedAt: string;
+};
+
+type AssetServerAction =
+  | { type: "offline" }
+  | { type: "loading" }
+  | { type: "loaded"; tasks: SubmittedTask[]; refreshedAt: string }
+  | { type: "failed"; error: string };
+
+const INITIAL_ASSET_SERVER_STATE: AssetServerState = {
+  serverTasks: [],
+  assetError: "",
+  isLoadingAssets: false,
+  lastRefreshedAt: "",
+};
+
 const ASSET_KIND_FILTERS: { id: AssetKindFilter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "combined", label: "Combined" },
@@ -40,23 +60,80 @@ const ASSET_STATUS_FILTERS: { id: TaskStatusFilter; label: string }[] = [
   { id: "needs-attention", label: "Needs attention" },
 ];
 
+function assetServerReducer(state: AssetServerState, action: AssetServerAction): AssetServerState {
+  switch (action.type) {
+    case "offline":
+      return {
+        ...state,
+        serverTasks: [],
+        assetError: "",
+        isLoadingAssets: false,
+      };
+    case "loading":
+      return {
+        ...state,
+        assetError: "",
+        isLoadingAssets: true,
+      };
+    case "loaded":
+      return {
+        ...state,
+        serverTasks: action.tasks,
+        lastRefreshedAt: action.refreshedAt,
+        isLoadingAssets: false,
+      };
+    case "failed":
+      return {
+        ...state,
+        assetError: action.error,
+        isLoadingAssets: false,
+      };
+  }
+}
+
 export function AssetsPage({ status, submittedTasks }: AssetsPageProps) {
-  const [serverTasks, setServerTasks] = useState<SubmittedTask[]>([]);
-  const [assetError, setAssetError] = useState("");
-  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
+  const [assetServerState, dispatchAssetServer] = useReducer(assetServerReducer, INITIAL_ASSET_SERVER_STATE);
   const [searchQuery, setSearchQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<AssetKindFilter>("all");
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("all");
-  const [lastRefreshedAt, setLastRefreshedAt] = useState("");
-  const [refreshKey, setRefreshKey] = useState(0);
   const [inspectorSelection, setInspectorSelection] = useState<OutputInspectSelection | null>(null);
+  const manualRefreshControllerRef = useRef<AbortController | null>(null);
+  const refreshGenerationRef = useRef(0);
   const backendReady = status.state === "online";
+  const { serverTasks, assetError, isLoadingAssets, lastRefreshedAt } = assetServerState;
+
+  const refreshAssets = useCallback(async (signal: AbortSignal) => {
+    if (!backendReady) {
+      return;
+    }
+
+    const refreshGeneration = refreshGenerationRef.current + 1;
+    refreshGenerationRef.current = refreshGeneration;
+    dispatchAssetServer({ type: "loading" });
+
+    try {
+      const response = await listTasks(1, 50, signal);
+      if (signal.aborted || refreshGeneration !== refreshGenerationRef.current) {
+        return;
+      }
+
+      dispatchAssetServer({
+        type: "loaded",
+        tasks: response.tasks.map((task) => toSubmittedTask(task, getTaskSubject(task), task.task_id ?? "unknown-task")),
+        refreshedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      });
+    } catch (error) {
+      if (!signal.aborted && refreshGeneration === refreshGenerationRef.current) {
+        dispatchAssetServer({ type: "failed", error: getErrorMessage(error) });
+      }
+    }
+  }, [backendReady]);
 
   useEffect(() => {
     if (!backendReady) {
-      setServerTasks([]);
-      setIsLoadingAssets(false);
-      setAssetError("");
+      manualRefreshControllerRef.current?.abort();
+      manualRefreshControllerRef.current = null;
+      dispatchAssetServer({ type: "offline" });
       return;
     }
 
@@ -65,33 +142,24 @@ export function AssetsPage({ status, submittedTasks }: AssetsPageProps) {
 
     return () => {
       controller.abort();
+      manualRefreshControllerRef.current?.abort();
+      manualRefreshControllerRef.current = null;
     };
-  }, [backendReady, refreshKey]);
+  }, [backendReady, refreshAssets]);
 
-  async function refreshAssets(signal: AbortSignal) {
+  function handleRefreshAssets() {
     if (!backendReady) {
       return;
     }
 
-    setIsLoadingAssets(true);
-    setAssetError("");
-
-    try {
-      const response = await listTasks(1, 50, signal);
-      if (signal.aborted) {
-        return;
+    manualRefreshControllerRef.current?.abort();
+    const controller = new AbortController();
+    manualRefreshControllerRef.current = controller;
+    void refreshAssets(controller.signal).finally(() => {
+      if (manualRefreshControllerRef.current === controller) {
+        manualRefreshControllerRef.current = null;
       }
-      setServerTasks(response.tasks.map((task) => toSubmittedTask(task, getTaskSubject(task), task.task_id ?? "unknown-task")));
-      setLastRefreshedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-    } catch (error) {
-      if (!signal.aborted) {
-        setAssetError(getErrorMessage(error));
-      }
-    } finally {
-      if (!signal.aborted) {
-        setIsLoadingAssets(false);
-      }
-    }
+    });
   }
 
   const mergedTasks = useMemo(() => mergeTasks(submittedTasks, serverTasks), [serverTasks, submittedTasks]);
@@ -117,7 +185,7 @@ export function AssetsPage({ status, submittedTasks }: AssetsPageProps) {
           <h3 id="assets-browser-heading">Generated output browser</h3>
           <p>Read-only view of task outputs from the backend task list and this browser session.</p>
         </div>
-        <button className="secondary-action" type="button" onClick={() => setRefreshKey((key) => key + 1)} disabled={!backendReady || isLoadingAssets}>
+        <button className="secondary-action" type="button" onClick={handleRefreshAssets} disabled={!backendReady || isLoadingAssets}>
           {isLoadingAssets ? <Loader2 className="spin-icon" size={17} /> : <RefreshCcw size={17} />}
           {isLoadingAssets ? "Loading" : "Refresh assets"}
         </button>
@@ -182,7 +250,7 @@ export function AssetsPage({ status, submittedTasks }: AssetsPageProps) {
                       <track kind="captions" label="Generated captions" srcLang="en" src="data:text/vtt,WEBVTT%0A%0A" />
                     </video>
                   ) : (
-                    <div className="asset-file-preview" role="img" aria-label={`Output file ${asset.filename}`}>
+                    <div className="asset-file-preview">
                       <FileVideo size={28} aria-hidden="true" />
                     </div>
                   )}

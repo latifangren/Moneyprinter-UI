@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Activity, Clapperboard, Loader2, RefreshCcw, Search } from "lucide-react";
 import type { ApiStatus } from "../api";
 import { listTasks } from "../api";
@@ -24,6 +24,26 @@ type TasksPageProps = {
   submittedTasks: SubmittedTask[];
 };
 
+type TaskServerState = {
+  serverTasks: SubmittedTask[];
+  taskError: string;
+  isLoadingTasks: boolean;
+  lastRefreshedAt: string;
+};
+
+type TaskServerAction =
+  | { type: "offline" }
+  | { type: "loading" }
+  | { type: "loaded"; tasks: SubmittedTask[]; refreshedAt: string }
+  | { type: "failed"; error: string };
+
+const INITIAL_TASK_SERVER_STATE: TaskServerState = {
+  serverTasks: [],
+  taskError: "",
+  isLoadingTasks: false,
+  lastRefreshedAt: "",
+};
+
 const FILTER_OPTIONS: { id: TaskStatusFilter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "active", label: "Active" },
@@ -31,23 +51,79 @@ const FILTER_OPTIONS: { id: TaskStatusFilter; label: string }[] = [
   { id: "needs-attention", label: "Needs attention" },
 ];
 
+function taskServerReducer(state: TaskServerState, action: TaskServerAction): TaskServerState {
+  switch (action.type) {
+    case "offline":
+      return {
+        ...state,
+        serverTasks: [],
+        taskError: "",
+        isLoadingTasks: false,
+      };
+    case "loading":
+      return {
+        ...state,
+        taskError: "",
+        isLoadingTasks: true,
+      };
+    case "loaded":
+      return {
+        ...state,
+        serverTasks: action.tasks,
+        lastRefreshedAt: action.refreshedAt,
+        isLoadingTasks: false,
+      };
+    case "failed":
+      return {
+        ...state,
+        taskError: action.error,
+        isLoadingTasks: false,
+      };
+  }
+}
+
 export function TasksPage({ status, submittedTasks }: TasksPageProps) {
-  const [serverTasks, setServerTasks] = useState<SubmittedTask[]>([]);
-  const [taskError, setTaskError] = useState("");
-  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+  const [taskServerState, dispatchTaskServer] = useReducer(taskServerReducer, INITIAL_TASK_SERVER_STATE);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("all");
   const [hasOutputsOnly, setHasOutputsOnly] = useState(false);
-  const [lastRefreshedAt, setLastRefreshedAt] = useState("");
   const [inspectorSelection, setInspectorSelection] = useState<OutputInspectSelection | null>(null);
   const refreshInFlightRef = useRef(false);
   const backendReady = status.state === "online";
+  const { serverTasks, taskError, isLoadingTasks, lastRefreshedAt } = taskServerState;
+
+  const refreshTasks = useCallback(async (signal?: AbortSignal) => {
+    if (refreshInFlightRef.current || !backendReady) {
+      return;
+    }
+
+    refreshInFlightRef.current = true;
+    dispatchTaskServer({ type: "loading" });
+
+    try {
+      const response = await listTasks(1, 12, signal);
+      if (signal?.aborted) {
+        return;
+      }
+
+      dispatchTaskServer({
+        type: "loaded",
+        tasks: response.tasks.map((task) => toSubmittedTask(task, getTaskSubject(task), task.task_id ?? "unknown-task")),
+        refreshedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      });
+    } catch (error) {
+      if (!signal?.aborted) {
+        dispatchTaskServer({ type: "failed", error: getErrorMessage(error) });
+      }
+    } finally {
+      refreshInFlightRef.current = false;
+    }
+  }, [backendReady]);
 
   useEffect(() => {
     if (!backendReady) {
-      setServerTasks([]);
-      setIsLoadingTasks(false);
-      setTaskError("");
+      refreshInFlightRef.current = false;
+      dispatchTaskServer({ type: "offline" });
       return;
     }
 
@@ -59,32 +135,7 @@ export function TasksPage({ status, submittedTasks }: TasksPageProps) {
       controller.abort();
       window.clearInterval(intervalId);
     };
-  }, [backendReady]);
-
-  async function refreshTasks(signal?: AbortSignal) {
-    if (refreshInFlightRef.current) {
-      return;
-    }
-
-    refreshInFlightRef.current = true;
-    setIsLoadingTasks(true);
-    setTaskError("");
-
-    try {
-      const response = await listTasks(1, 12, signal);
-      setServerTasks(response.tasks.map((task) => toSubmittedTask(task, getTaskSubject(task), task.task_id ?? "unknown-task")));
-      setLastRefreshedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-    } catch (error) {
-      if (!signal?.aborted) {
-        setTaskError(getErrorMessage(error));
-      }
-    } finally {
-      refreshInFlightRef.current = false;
-      if (!signal?.aborted) {
-        setIsLoadingTasks(false);
-      }
-    }
-  }
+  }, [backendReady, refreshTasks]);
 
   const mergedTasks = mergeTasks(submittedTasks, serverTasks);
   const statusCounts = useMemo(() => getTaskStatusCounts(mergedTasks), [mergedTasks]);
