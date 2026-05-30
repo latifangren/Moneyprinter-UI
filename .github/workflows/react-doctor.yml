@@ -21,4 +21,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: millionco/react-doctor@main
+      - name: React Doctor strict PR scan
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: millionco/react-doctor@main
+        with:
+          fail-on: error
+
+      - name: React Doctor advisory scan
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: millionco/react-doctor@main
+        with:
+          fail-on: none
