@@ -1,0 +1,202 @@
+@media (max-width: 1120px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(21rem, calc(100vw - var(--space-8)));
+    transform: translateX(-110%);
+    transition: transform var(--motion-base);
+  }
+
+  .sidebar-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    display: block;
+    border: 0;
+    background: rgba(0, 0, 0, 0.62);
+  }
+
+  .mobile-menu {
+    display: inline-flex;
+  }
+
+  .close-sidebar {
+    display: none;
+  }
+
+  .metrics-grid,
+  .step-grid,
+  .generated-assets-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px) {
+  .workspace {
+    padding: var(--space-4);
+  }
+
+  .topbar {
+    top: var(--space-4);
+    align-items: flex-start;
+  }
+
+  .topbar-actions {
+    display: none;
+  }
+
+  .hero-card,
+  .studio-layout,
+  .settings-layout,
+  .compact-form-grid,
+  .two-column-grid,
+  .task-control-panel,
+  .studio-defaults-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .task-refresh-meta {
+    flex-direction: column;
+  }
+
+  .asset-refresh-meta {
+    flex-direction: column;
+  }
+
+  .studio-copy {
+    position: static;
+  }
+
+  .output-grid,
+  .output-grid-compact {
+    grid-template-columns: 1fr;
+  }
+
+  .output-action-pair,
+  .output-card-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .output-inspect-button {
+    width: 100%;
+  }
+
+  .hero-card {
+    min-height: auto;
+  }
+
+  .generated-assets-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .workspace {
+    padding: var(--space-3);
+  }
+
+  .topbar,
+  .panel-card,
+  .hero-card,
+  .studio-layout {
+    border-radius: var(--radius-md);
+  }
+
+  .hero-card,
+  .studio-layout,
+  .settings-layout,
+  .api-card,
+  .queue-card,
+  .settings-card,
+  .table-card,
+  .assets-browser,
+  .section-title-row.panel-card {
+    padding: var(--space-4);
+  }
+
+  .metrics-grid,
+  .step-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-preview {
+    padding: var(--space-4);
+  }
+
+  .task-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .task-row-live > .output-grid {
+    grid-column: 1 / -1;
+  }
+
+  .task-row > span:not(.task-avatar),
+  .task-row > strong {
+    grid-column: 2;
+  }
+
+  .section-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .primary-action,
+  .secondary-action,
+  .task-filter-chip,
+  .asset-filter-block,
+  .output-inspector-actions,
+  .output-link-compact,
+  .output-action-pair,
+  .output-summary,
+  .output-more {
+    width: 100%;
+  }
+
+  .output-inspector-scrim {
+    align-items: end;
+    padding: var(--space-2);
+  }
+
+  .output-inspector-panel {
+    width: 100%;
+    max-height: calc(100vh - var(--space-4));
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-md) var(--radius-md);
+  }
+
+  .output-inspector-header,
+  .output-inspector-preview,
+  .output-inspector-body {
+    padding: var(--space-4);
+  }
+
+  .output-inspector-meta div {
+    grid-template-columns: 1fr;
+  }
+
+  .output-inspector-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .asset-card-title-row,
+  .asset-safe-meta div {
+    grid-template-columns: 1fr;
+  }
+
+  .split-actions,
+  .studio-default-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
