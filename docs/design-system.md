@@ -4,7 +4,7 @@
 
 This document is source of truth for next visual redesign of `Moneyprinter-UI`.
 
-It is design documentation only. It does not change runtime behavior, API contracts, backend flow, or current implementation structure in `src/App.tsx`, `src/styles.css`, `src/api.ts`, or `README.md`.
+It is design documentation only. It does not change runtime behavior, API contracts, backend flow, or current implementation structure in `src/App.tsx`, `src/api.ts`, `src/styles.css`, or the partials under `src/styles/**`.
 
 ## 1. Purpose and Scope
 
@@ -14,7 +14,7 @@ Scope of this document:
 
 - Define visual direction for future UI redesign.
 - Preserve current MoneyPrinterTurbo frontend behavior as hard constraint.
-- Give another agent enough structure to redesign `src/App.tsx` and `src/styles.css` later without guessing.
+- Give another agent enough structure to redesign `src/App.tsx` and the current CSS entrypoint/partials later without guessing.
 - Keep current API-connected workflow intact.
 
 Out of scope for this phase:
@@ -51,21 +51,29 @@ Current frontend is functional, but visual direction is mismatched with product 
 
 Known current state:
 
-- `src/styles.css` uses light rose, orange, cream, glassy SaaS styling.
+- `src/styles.css` is now the styling entrypoint, importing the split baseline under `src/styles/**`.
 - `src/App.tsx` presents app as multi-page creator tool with dashboard, studio, tasks, assets, and settings.
 - `src/api.ts` already supports real backend operations and same-origin dev proxy behavior.
 - `README.md` documents current app as API-connected React + Vite frontend for MoneyPrinterTurbo.
 
 Gap to close in Phase 3D:
 
-- Current look feels warm, soft, and lifestyle SaaS.
+- Current look still needs the split CSS baseline refined into the final cinematic system.
 - Future look must feel dark, cinematic, precise, and production-oriented.
 - Current layout reads like stacked product cards.
 - Future layout should read like studio workspace with command surfaces, preview focus, and queue visibility.
 
 Hard truth for redesign planning:
 
-Current UI does **not** already use dark cinematic creator-studio design. Phase 3D must introduce that shift on purpose.
+Current UI does **not** already fully satisfy the dark cinematic creator-studio design. Phase 3D must finish that shift on purpose while building on the split CSS baseline.
+
+## 3.1 Hard Constraints Summary
+
+- Preserve all existing MoneyPrinterTurbo-connected flows and endpoint usage.
+- Keep `src/styles.css` as the import entrypoint for the styling system.
+- Treat `src/styles/**` as the current styling baseline for future work, not a separate redesign target.
+- Do not add new product features while implementing the visual redesign.
+- Do not change backend contracts, task lifecycle behavior, or data model assumptions.
 
 ## 4. Inspiration Mapping by Area
 
@@ -417,7 +425,7 @@ Future redesign may change layout, styling, density, and component presentation.
 It must **not** break or redefine current API behavior documented by current implementation:
 
 - `src/App.tsx` remains current source of page behavior until later refactor.
-- `src/styles.css` is current styling baseline to replace visually, not behaviorally.
+- `src/styles.css` is current styling entrypoint, with `src/styles/**` as baseline partials to refine visually, not behaviorally.
 - `src/api.ts` remains behavioral contract for frontend-backend communication.
 - `README.md` remains current scope reference for what frontend already does.
 
