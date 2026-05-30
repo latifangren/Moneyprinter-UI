@@ -24,14 +24,14 @@ For backend setup and core video generation engine, use upstream MoneyPrinterTur
 
 ## Current Scope
 
-Current UI matches implemented pages and flows split across `src/App.tsx`, `src/pages/*`, `src/components/*`, and shared helpers in `src/api.ts`, `src/taskModel.ts`, `src/studioForm.ts`, `src/content.ts`, and `src/outputUrl.ts`.
+Current UI matches implemented pages and flows split across `src/App.tsx`, `src/pages/*`, `src/components/*`, and shared helpers in `src/api.ts`, `src/taskModel.ts`, `src/outputInspectorModel.ts`, `src/studioForm.ts`, `src/content.ts`, and `src/outputUrl.ts`.
 
 | Area | Current state |
 | --- | --- |
 | Dashboard | Implemented, includes backend status probe and workflow summary |
 | Create Studio | Implemented, can save/restore browser-local Studio defaults, generate script, generate terms, submit video task, poll task status, preview outputs |
 | Tasks page | Implemented, lists backend tasks, merges backend results with tasks created in current browser session |
-| Output preview | Implemented for `/tasks/...` output URLs, including direct links and inline video preview when file type is video |
+| Output preview | Implemented for `/tasks/...` output URLs, including direct links, inline video preview when file type is video, and read-only Output Inspector actions |
 | Assets page | Implemented, read-only generated output browser for task outputs from `/api/v1/tasks` and current-session submissions |
 | Some shell or action buttons | Placeholder only, no backend action wired |
 | Settings page | Implemented for backend connection details, status refresh guidance, and browser-local Studio defaults management |
@@ -110,7 +110,7 @@ Current package scripts:
 | --- | --- | --- |
 | `dev` | `vite --host 127.0.0.1 --port 5173` | Local development server with `/api` and `/tasks` proxy |
 | `build` | `tsc -b && vite build` | Type check and production build |
-| `test:unit` | `node --test src/outputUrl.test.mjs src/taskModel.test.mjs src/assetsModel.test.mjs src/studioForm.test.mjs src/api.test.mjs` | Run output URL resolver, task helper, generated asset helper, Studio form default, and API metadata unit tests |
+| `test:unit` | `node --test src/outputUrl.test.mjs src/outputInspectorModel.test.mjs src/taskModel.test.mjs src/assetsModel.test.mjs src/studioForm.test.mjs src/api.test.mjs` | Run output URL resolver, Output Inspector helper, task helper, generated asset helper, Studio form default, and API metadata unit tests |
 | `preview` | `vite preview --host 127.0.0.1 --port 4173` | Preview built app |
 
 ## Environment Variables
@@ -156,6 +156,8 @@ Current frontend calls these MoneyPrinterTurbo backend endpoints.
 | Task list | `GET` | `/api/v1/tasks` | Tasks page, Assets page, status probe |
 | Task detail | `GET` | `/api/v1/tasks/{task_id}` | Create Studio polling |
 | Output preview | `GET` | `/tasks/...` | Inline video preview and output links |
+
+Output Inspector is frontend-only and read-only. It reuses existing task/output data and normalized `/tasks/...` output links already present in Tasks, Assets, and low-risk Studio result surfaces. It does not call upload, delete, generation, or other POST endpoints.
 
 ### Task State Mapping
 
@@ -206,6 +208,8 @@ Studio defaults use browser `localStorage` only. They persist across browser rel
 - Refreshes periodically when backend is online
 - Merges backend tasks with tasks submitted in current UI session
 - Shows progress, status, and output links
+- Adds explicit Inspect buttons for task-mounted outputs. Inspector shows only safe metadata: filename, task ID, subject, status, progress, message, kind, updated time, and normalized output URL.
+- Inspector actions are Open output, Copy output link, and Copy task ID. Existing output links still open directly in new tabs.
 
 ### Assets
 
@@ -213,9 +217,22 @@ Studio defaults use browser `localStorage` only. They persist across browser rel
 - Fetches `GET /api/v1/tasks?page=1&page_size=50` only when backend status is online
 - Merges backend task outputs with outputs submitted in the current browser session
 - Shows safe output fields only: filename, subject, task ID, status, kind, updated time, and output link
+- Adds explicit Inspect buttons on asset cards using the matched task and asset output path/kind
 - Supports search by filename, subject, or task ID plus output-kind and task-status filters
 - Previews `.mp4`, `.webm`, and `.ogg` outputs inline through normalized `/tasks/...` URLs
 - Does not upload, delete, POST, or call generation endpoints
+
+### Output Inspector
+
+- Opens from Inspect buttons on task-mounted Tasks output chips, Assets output cards, and Studio live task outputs
+- Uses controlled React state only; closing the dialog does not change polling, filters, or generation flow
+- Shows video preview for `.mp4`, `.webm`, and `.ogg` output URLs and a file frame for non-video outputs
+- Shows safe metadata only: filename, task ID, subject, status, progress, message, kind, updated time, and output URL
+- Provides Open output, Copy output link, and Copy task ID actions
+- Reuses existing task data and inspectable `/tasks/...` output links; non-task external output links remain visible as links but are not inspector entry points
+- Rejects untrusted absolute URLs that only mimic `/tasks/...` paths from becoming inspector entry points
+- Never exposes raw params, raw backend JSON, script text, or generated terms
+- Does not upload/delete assets and does not call `/api/v1/scripts`, `/api/v1/terms`, `/api/v1/videos`, `/api/v1/audio`, or `/api/v1/subtitle`
 
 ### Settings
 
@@ -243,7 +260,7 @@ For non-portable use, point `VITE_API_BASE_URL` at any reachable MoneyPrinterTur
 
 This README is written against current local implementation and local backend integration assumptions.
 
-- Frontend checked against `src/App.tsx`, `src/pages/*`, `src/components/*`, `src/api.ts`, `src/taskModel.ts`, `src/assetsModel.ts`, `src/studioForm.ts`, `src/content.ts`, `src/outputUrl.ts`, `src/outputUrl.test.mjs`, `src/assetsModel.test.mjs`, `src/studioForm.test.mjs`, `.env.example`, and `package.json`
+- Frontend checked against `src/App.tsx`, `src/pages/*`, `src/components/*`, `src/api.ts`, `src/taskModel.ts`, `src/assetsModel.ts`, `src/outputInspectorModel.ts`, `src/studioForm.ts`, `src/content.ts`, `src/outputUrl.ts`, `src/outputUrl.test.mjs`, `src/outputInspectorModel.test.mjs`, `src/assetsModel.test.mjs`, `src/studioForm.test.mjs`, `.env.example`, and `package.json`
 - Backend compatibility note based on bundled local `MoneyPrinterTurbo/` checkout
 - Tested against project knowledge base reference for upstream commit `042deb8`
 
@@ -278,6 +295,7 @@ Compatibility note:
 - Backend reachability probe uses `GET /api/v1/tasks?page=1&page_size=1`
 - Backend settings metadata is exported from `src/api.ts` and covered by `src/api.test.mjs`
 - Output URL normalization lives in `src/outputUrl.ts` and is covered by `npm run test:unit`
+- Output Inspector item/detail helpers live in `src/outputInspectorModel.ts` and are covered by `src/outputInspectorModel.test.mjs`
 - Output links are normalized to backend `/tasks/...` paths before preview
 - Assets helper logic lives in `src/assetsModel.ts` and is covered by `src/assetsModel.test.mjs`
 - Create Studio polling runs on interval and stops after capped attempts if task never resolves
