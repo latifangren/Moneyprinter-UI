@@ -1,5 +1,5 @@
 import { Copy, ExternalLink, Film, Link2, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { resolveOutputUrl } from "../api";
 import {
   createOutputInspectorDetails,
@@ -18,12 +18,19 @@ type CopyTarget = "output" | "task";
 export function OutputInspectorDialog({ selection, onClose }: OutputInspectorDialogProps) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  const [copyMessage, setCopyMessage] = useState("");
+  const [copyFeedback, setCopyFeedback] = useState<{ message: string; selection: OutputInspectSelection | null }>({
+    message: "",
+    selection: null,
+  });
   const outputUrl = selection ? resolveOutputUrl(selection.outputPath) : "";
   const details = useMemo(
     () => (selection ? createOutputInspectorDetails(selection, outputUrl) : null),
     [outputUrl, selection],
   );
+  const copyMessage = copyFeedback.selection === selection ? copyFeedback.message : "";
+  const closeLatest = useEffectEvent(() => {
+    onClose();
+  });
 
   useEffect(() => {
     if (!selection) {
@@ -36,7 +43,7 @@ export function OutputInspectorDialog({ selection, onClose }: OutputInspectorDia
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        onClose();
+        closeLatest();
       }
     }
 
@@ -48,10 +55,6 @@ export function OutputInspectorDialog({ selection, onClose }: OutputInspectorDia
       previousFocus?.focus();
       previousFocusRef.current = null;
     };
-  }, [onClose, selection]);
-
-  useEffect(() => {
-    setCopyMessage("");
   }, [selection]);
 
   if (!details) {
@@ -62,16 +65,16 @@ export function OutputInspectorDialog({ selection, onClose }: OutputInspectorDia
     const label = target === "output" ? "Output link" : "Task ID";
 
     if (!navigator.clipboard?.writeText) {
-      setCopyMessage(`${label} copy unavailable in this browser.`);
+      setCopyFeedback({ message: `${label} copy unavailable in this browser.`, selection });
       return;
     }
 
     try {
       await navigator.clipboard.writeText(value);
-      setCopyMessage(`${label} copied.`);
+      setCopyFeedback({ message: `${label} copied.`, selection });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Clipboard write failed.";
-      setCopyMessage(`${label} copy failed: ${message}`);
+      setCopyFeedback({ message: `${label} copy failed: ${message}`, selection });
     }
   }
 
@@ -106,8 +109,9 @@ export function OutputInspectorDialog({ selection, onClose }: OutputInspectorDia
               <track kind="captions" label="Generated captions" srcLang="en" src="data:text/vtt,WEBVTT%0A%0A" />
             </video>
           ) : (
-            <div className="output-inspector-file" role="img" aria-label={`Output file ${details.filename}`}>
+            <div className="output-inspector-file">
               <Film size={36} aria-hidden="true" />
+              <span className="sr-only">{`Output file ${details.filename}`}</span>
             </div>
           )}
         </div>
