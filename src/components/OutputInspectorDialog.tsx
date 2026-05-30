@@ -31,6 +31,7 @@ export function OutputInspectorDialog({ selection, onClose }: OutputInspectorDia
     }
 
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousFocus = previousFocusRef.current;
     const focusTimerId = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -44,7 +45,7 @@ export function OutputInspectorDialog({ selection, onClose }: OutputInspectorDia
     return () => {
       window.clearTimeout(focusTimerId);
       document.removeEventListener("keydown", handleKeyDown);
-      previousFocusRef.current?.focus();
+      previousFocus?.focus();
       previousFocusRef.current = null;
     };
   }, [onClose, selection]);
@@ -159,7 +160,7 @@ export function OutputInspectorDialog({ selection, onClose }: OutputInspectorDia
             </button>
           </div>
 
-          {copyMessage ? <p className="form-alert form-alert-info" role="status">{copyMessage}</p> : null}
+          {copyMessage ? <output className="form-alert form-alert-info">{copyMessage}</output> : null}
         </div>
       </aside>
     </div>
