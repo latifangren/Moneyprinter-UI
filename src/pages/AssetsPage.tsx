@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, FileVideo, FolderOpen, Loader2, RefreshCcw, Search } from "lucide-react";
+import { ExternalLink, FileVideo, FolderOpen, Loader2, RefreshCcw, ScanSearch, Search } from "lucide-react";
 import type { ApiStatus } from "../api";
-import { listTasks, resolveOutputUrl } from "../api";
+import { getApiBaseUrl, listTasks, resolveOutputUrl } from "../api";
 import { getErrorMessage } from "../apiErrors";
+import { OutputInspectorDialog } from "../components/OutputInspectorDialog";
 import {
   createGeneratedAssets,
   filterGeneratedAssets,
@@ -10,6 +11,8 @@ import {
   getAssetStatusCounts,
   type AssetKindFilter,
 } from "../assetsModel";
+import type { OutputInspectSelection } from "../outputInspectorModel";
+import { isVideoOutputUrl } from "../outputUrl";
 import {
   getTaskSubject,
   mergeTasks,
@@ -46,6 +49,7 @@ export function AssetsPage({ status, submittedTasks }: AssetsPageProps) {
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("all");
   const [lastRefreshedAt, setLastRefreshedAt] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [inspectorSelection, setInspectorSelection] = useState<OutputInspectSelection | null>(null);
   const backendReady = status.state === "online";
 
   useEffect(() => {
@@ -91,7 +95,8 @@ export function AssetsPage({ status, submittedTasks }: AssetsPageProps) {
   }
 
   const mergedTasks = useMemo(() => mergeTasks(submittedTasks, serverTasks), [serverTasks, submittedTasks]);
-  const generatedAssets = useMemo(() => createGeneratedAssets(mergedTasks), [mergedTasks]);
+  const tasksById = useMemo(() => new Map(mergedTasks.map((task) => [task.taskId, task])), [mergedTasks]);
+  const generatedAssets = useMemo(() => createGeneratedAssets(mergedTasks, getApiBaseUrl()), [mergedTasks]);
   const kindCounts = useMemo(() => getAssetKindCounts(generatedAssets), [generatedAssets]);
   const statusCounts = useMemo(() => getAssetStatusCounts(generatedAssets), [generatedAssets]);
   const filteredAssets = useMemo(
@@ -104,6 +109,7 @@ export function AssetsPage({ status, submittedTasks }: AssetsPageProps) {
   const emptyMessage = getEmptyAssetMessage(generatedAssets.length, filteredAssets.length, backendReady);
 
   return (
+    <>
     <section className="panel-card assets-browser" aria-labelledby="assets-browser-heading">
       <div className="section-title-row assets-browser-header">
         <div>
@@ -166,11 +172,12 @@ export function AssetsPage({ status, submittedTasks }: AssetsPageProps) {
         <div className="generated-assets-grid">
           {filteredAssets.map((asset) => {
             const outputUrl = resolveOutputUrl(asset.outputPath);
+            const matchedTask = tasksById.get(asset.taskId);
 
             return (
               <article className="generated-asset-card" key={asset.id}>
                 <div className="asset-preview-frame">
-                  {isVideoOutput(outputUrl) ? (
+                  {isVideoOutputUrl(outputUrl) ? (
                     <video controls src={outputUrl} preload="metadata" aria-label={asset.filename}>
                       <track kind="captions" label="Generated captions" srcLang="en" src="data:text/vtt,WEBVTT%0A%0A" />
                     </video>
@@ -189,6 +196,16 @@ export function AssetsPage({ status, submittedTasks }: AssetsPageProps) {
                     </a>
                     <span className={`status-chip asset-kind-${asset.kind}`}>{asset.kind}</span>
                   </div>
+                  <button
+                    className="output-inspect-button asset-inspect-button"
+                    type="button"
+                    onClick={() => matchedTask && setInspectorSelection({ task: matchedTask, outputPath: asset.outputPath, kind: asset.kind })}
+                    disabled={!matchedTask}
+                    aria-label={`Inspect ${asset.filename}`}
+                  >
+                    <ScanSearch size={16} aria-hidden="true" />
+                    Inspect
+                  </button>
                   <p>{asset.subject}</p>
                   <dl className="asset-safe-meta">
                     <div>
@@ -216,6 +233,8 @@ export function AssetsPage({ status, submittedTasks }: AssetsPageProps) {
         </div>
       )}
     </section>
+    <OutputInspectorDialog selection={inspectorSelection} onClose={() => setInspectorSelection(null)} />
+    </>
   );
 }
 
@@ -227,8 +246,4 @@ function getEmptyAssetMessage(assetCount: number, filteredCount: number, backend
     return "No generated outputs found yet. Completed tasks with returned video outputs will appear here.";
   }
   return "No current-session outputs to show while backend is offline.";
-}
-
-function isVideoOutput(outputUrl: string): boolean {
-  return /\.(mp4|webm|ogg)(\?|#|$)/i.test(outputUrl);
 }

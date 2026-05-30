@@ -3,8 +3,10 @@ import { Activity, Clapperboard, Loader2, RefreshCcw, Search } from "lucide-reac
 import type { ApiStatus } from "../api";
 import { listTasks } from "../api";
 import { getErrorMessage } from "../apiErrors";
+import { OutputInspectorDialog } from "../components/OutputInspectorDialog";
 import { TaskOutputs } from "../components/TaskOutputs";
 import { TaskProgress } from "../components/TaskProgress";
+import type { OutputInspectSelection } from "../outputInspectorModel";
 import {
   filterTasks,
   getTaskStatusCounts,
@@ -30,6 +32,7 @@ export function TasksPage({ status, submittedTasks }: TasksPageProps) {
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("all");
   const [hasOutputsOnly, setHasOutputsOnly] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState("");
+  const [inspectorSelection, setInspectorSelection] = useState<OutputInspectSelection | null>(null);
   const refreshInFlightRef = useRef(false);
   const backendReady = status.state === "online";
 
@@ -92,6 +95,7 @@ export function TasksPage({ status, submittedTasks }: TasksPageProps) {
   const refreshStatus = backendReady ? `Auto-refresh every 5s${lastRefreshedAt ? `, last ${lastRefreshedAt}` : ""}` : "Auto-refresh paused while backend is offline";
 
   return (
+    <>
     <section className="panel-card table-card">
       <div className="section-title-row">
         <div>
@@ -153,7 +157,7 @@ export function TasksPage({ status, submittedTasks }: TasksPageProps) {
                   </div>
                   <span className={`status-chip task-status-${task.status}`}>{taskStatusLabel(task.status)}</span>
                   <strong>{task.updatedAt}</strong>
-                  <TaskOutputs task={task} compact />
+                  <TaskOutputs task={task} compact onInspectOutput={setInspectorSelection} />
                 </article>
               ))}
             </section>
@@ -166,5 +170,7 @@ export function TasksPage({ status, submittedTasks }: TasksPageProps) {
         )}
       </div>
     </section>
+    <OutputInspectorDialog selection={inspectorSelection} onClose={() => setInspectorSelection(null)} />
+    </>
   );
 }

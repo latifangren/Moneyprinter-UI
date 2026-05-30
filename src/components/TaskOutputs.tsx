@@ -1,15 +1,21 @@
-import { ExternalLink } from "lucide-react";
-import { resolveOutputUrl } from "../api";
+import { ExternalLink, ScanSearch } from "lucide-react";
+import { getApiBaseUrl, resolveOutputUrl } from "../api";
+import type { OutputInspectSelection } from "../outputInspectorModel";
+import { getTaskOutputItems } from "../outputInspectorModel";
+import { isTaskMountedOutputPath, isVideoOutputUrl } from "../outputUrl";
 import type { SubmittedTask } from "../taskModel";
-import { getOutputFilename, getTaskOutputSummary } from "../taskModel";
+import { getTaskOutputSummary } from "../taskModel";
 
 type TaskOutputsProps = {
   task: SubmittedTask;
   compact?: boolean;
+  onInspectOutput?: (selection: OutputInspectSelection) => void;
 };
 
-export function TaskOutputs({ task, compact = false }: TaskOutputsProps) {
+export function TaskOutputs({ task, compact = false, onInspectOutput }: TaskOutputsProps) {
   const outputSummary = getTaskOutputSummary(task, compact ? 3 : Number.MAX_SAFE_INTEGER);
+  const outputItems = getTaskOutputItems(task, compact ? 3 : Number.MAX_SAFE_INTEGER);
+  const trustedBaseUrl = getApiBaseUrl();
 
   if (outputSummary.totalCount === 0) {
     return compact ? null : <p className="output-empty">No video outputs returned yet.</p>;
@@ -22,15 +28,28 @@ export function TaskOutputs({ task, compact = false }: TaskOutputsProps) {
           {outputSummary.totalCount} output{outputSummary.totalCount === 1 ? "" : "s"}
           {outputSummary.combinedCount > 0 ? `, ${outputSummary.combinedCount} combined` : ""}
         </p>
-        {outputSummary.visibleOutputs.map((outputPath) => {
-          const outputUrl = resolveOutputUrl(outputPath);
-          const label = getOutputFilename(outputPath);
+        {outputItems.map((item) => {
+          const outputUrl = resolveOutputUrl(item.outputPath);
+          const isMountedOutput = isTaskMountedOutputPath(item.outputPath, trustedBaseUrl);
 
           return (
-            <a className="output-link-compact" href={outputUrl} target="_blank" rel="noreferrer" key={outputPath}>
-              <ExternalLink size={14} aria-hidden="true" />
-              {label}
-            </a>
+            <div className="output-action-pair" key={item.id}>
+              <a className="output-link-compact" href={outputUrl} target="_blank" rel="noreferrer">
+                <ExternalLink size={14} aria-hidden="true" />
+                {item.filename}
+              </a>
+              {onInspectOutput && isMountedOutput ? (
+                <button
+                  className="output-inspect-button output-inspect-button-compact"
+                  type="button"
+                  onClick={() => onInspectOutput({ task, outputPath: item.outputPath, kind: item.kind })}
+                  aria-label={`Inspect ${item.filename}`}
+                >
+                  <ScanSearch size={14} aria-hidden="true" />
+                  Inspect
+                </button>
+              ) : null}
+            </div>
           );
         })}
         {outputSummary.hiddenCount > 0 ? <span className="output-more">+{outputSummary.hiddenCount} more</span> : null}
@@ -40,28 +59,37 @@ export function TaskOutputs({ task, compact = false }: TaskOutputsProps) {
 
   return (
     <div className="output-grid">
-      {outputSummary.outputs.map((outputPath) => {
-        const outputUrl = resolveOutputUrl(outputPath);
-        const label = getOutputFilename(outputPath);
+      {outputItems.map((item) => {
+        const outputUrl = resolveOutputUrl(item.outputPath);
+        const isMountedOutput = isTaskMountedOutputPath(item.outputPath, trustedBaseUrl);
 
         return (
-          <article className="output-card" key={outputPath}>
-            {isVideoOutput(outputUrl) ? (
-              <video controls src={outputUrl} preload="metadata" aria-label={label}>
+          <article className="output-card" key={item.id}>
+            {isMountedOutput && isVideoOutputUrl(outputUrl) ? (
+              <video controls src={outputUrl} preload="metadata" aria-label={item.filename}>
                 <track kind="captions" label="Generated captions" srcLang="en" src="data:text/vtt,WEBVTT%0A%0A" />
               </video>
             ) : null}
-            <a href={outputUrl} target="_blank" rel="noreferrer">
-              <ExternalLink size={16} aria-hidden="true" />
-              {label}
-            </a>
+            <div className="output-card-actions">
+              <a href={outputUrl} target="_blank" rel="noreferrer">
+                <ExternalLink size={16} aria-hidden="true" />
+                {item.filename}
+              </a>
+              {onInspectOutput && isMountedOutput ? (
+                <button
+                  className="output-inspect-button"
+                  type="button"
+                  onClick={() => onInspectOutput({ task, outputPath: item.outputPath, kind: item.kind })}
+                  aria-label={`Inspect ${item.filename}`}
+                >
+                  <ScanSearch size={16} aria-hidden="true" />
+                  Inspect
+                </button>
+              ) : null}
+            </div>
           </article>
         );
       })}
     </div>
   );
-}
-
-function isVideoOutput(outputUrl: string): boolean {
-  return /\.(mp4|webm|ogg)(\?|#|$)/i.test(outputUrl);
 }

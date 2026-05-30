@@ -3,8 +3,10 @@ import { AlertCircle, Loader2, PlayCircle, RotateCcw, Save, Sparkles, Undo2, Wan
 import type { ApiStatus, CreateVideoPayload } from "../api";
 import { createVideo, generateScript, generateTerms, getTask } from "../api";
 import { getErrorMessage } from "../apiErrors";
+import { OutputInspectorDialog } from "../components/OutputInspectorDialog";
 import { TaskOutputs } from "../components/TaskOutputs";
 import { TaskProgress } from "../components/TaskProgress";
+import type { OutputInspectSelection } from "../outputInspectorModel";
 import {
   APP_DEFAULT_STUDIO_SETTINGS,
   clearStoredStudioDefaultSettings,
@@ -56,6 +58,7 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
   const [isGeneratingTerms, setIsGeneratingTerms] = useState(false);
   const [isSubmittingVideo, setIsSubmittingVideo] = useState(false);
   const [activeTask, setActiveTask] = useState<SubmittedTask | null>(null);
+  const [inspectorSelection, setInspectorSelection] = useState<OutputInspectSelection | null>(null);
   const pollControllerRef = useRef<AbortController | null>(null);
   const pollGenerationRef = useRef(0);
 
@@ -521,7 +524,7 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
             <span className={`status-chip task-status-${activeTask.status}`}>{taskStatusLabel(activeTask.status)}</span>
           </div>
           <TaskProgress task={activeTask} />
-          <TaskOutputs task={activeTask} />
+          <TaskOutputs task={activeTask} onInspectOutput={setInspectorSelection} />
         </section>
       ) : (
         <section className="step-grid">
@@ -539,6 +542,7 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
           ))}
         </section>
       )}
+      <OutputInspectorDialog selection={inspectorSelection} onClose={() => setInspectorSelection(null)} />
     </>
   );
 }

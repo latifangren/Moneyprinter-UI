@@ -1,5 +1,6 @@
 import type { SubmittedTask, SubmittedTaskStatus, TaskStatusFilter } from "./taskModel.ts";
 import { getOutputFilename, getTaskOutputSummary, getTaskStatusGroup } from "./taskModel.ts";
+import { isTaskMountedOutputPath } from "./outputUrl.ts";
 
 export type AssetKind = "combined" | "clip";
 
@@ -26,12 +27,12 @@ export type AssetKindCounts = Record<AssetKindFilter, number>;
 
 export type AssetStatusCounts = Record<TaskStatusFilter, number>;
 
-export function createGeneratedAssets(tasks: SubmittedTask[]): GeneratedAsset[] {
+export function createGeneratedAssets(tasks: SubmittedTask[], trustedBaseUrl = ""): GeneratedAsset[] {
   return tasks.flatMap((task) => {
     const outputSummary = getTaskOutputSummary(task, Number.MAX_SAFE_INTEGER);
     const mountedOutputs = outputSummary.outputs
       .map((outputPath, outputIndex) => ({ outputPath, outputIndex }))
-      .filter(({ outputPath }) => isTaskMountedOutputPath(outputPath));
+      .filter(({ outputPath }) => isTaskMountedOutputPath(outputPath, trustedBaseUrl));
 
     return mountedOutputs.map(({ outputPath, outputIndex }) => ({
       id: createGeneratedAssetId(task.taskId, outputPath),
@@ -85,25 +86,6 @@ export function getAssetStatusCounts(assets: GeneratedAsset[]): AssetStatusCount
   }
 
   return counts;
-}
-
-function isTaskMountedOutputPath(outputPath: string): boolean {
-  const normalizedOutputPath = outputPath.replace(/\\/g, "/");
-
-  if (normalizedOutputPath.startsWith("http://") || normalizedOutputPath.startsWith("https://")) {
-    try {
-      return new URL(normalizedOutputPath).pathname.includes("/tasks/");
-    } catch {
-      return false;
-    }
-  }
-
-  return (
-    normalizedOutputPath.includes("/tasks/") ||
-    normalizedOutputPath.includes("/storage/tasks/") ||
-    normalizedOutputPath.startsWith("tasks/") ||
-    normalizedOutputPath.startsWith("/tasks/")
-  );
 }
 
 function createGeneratedAssetId(taskId: string, outputPath: string): string {
