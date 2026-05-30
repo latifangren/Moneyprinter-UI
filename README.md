@@ -9,13 +9,13 @@ This project does **not** include the MoneyPrinterTurbo backend. It talks to an 
 - React UI for MoneyPrinterTurbo workflows
 - Vite development and build setup
 - Client-side API layer for live backend calls
-- Local dashboard for status, create flow, and task monitoring
+- Local dashboard for status, create flow, task monitoring, and read-only output browsing
 
 ## What This Project Is Not
 
 - Not backend API code
 - Not bundled model, media, or rendering pipeline logic
-- Not complete asset management yet
+- Not media upload, delete, or library management code
 - Not replacement for upstream MoneyPrinterTurbo
 
 For backend setup and core video generation engine, use upstream MoneyPrinterTurbo:
@@ -32,7 +32,7 @@ Current UI matches implemented pages and flows split across `src/App.tsx`, `src/
 | Create Studio | Implemented, can save/restore browser-local Studio defaults, generate script, generate terms, submit video task, poll task status, preview outputs |
 | Tasks page | Implemented, lists backend tasks, merges backend results with tasks created in current browser session |
 | Output preview | Implemented for `/tasks/...` output URLs, including direct links and inline video preview when file type is video |
-| Assets page | Placeholder UI only |
+| Assets page | Implemented, read-only generated output browser for task outputs from `/api/v1/tasks` and current-session submissions |
 | Some shell or action buttons | Placeholder only, no backend action wired |
 | Settings page | Implemented for backend connection details, status refresh guidance, and browser-local Studio defaults management |
 
@@ -110,7 +110,7 @@ Current package scripts:
 | --- | --- | --- |
 | `dev` | `vite --host 127.0.0.1 --port 5173` | Local development server with `/api` and `/tasks` proxy |
 | `build` | `tsc -b && vite build` | Type check and production build |
-| `test:unit` | `node --test src/outputUrl.test.mjs src/taskModel.test.mjs src/studioForm.test.mjs src/api.test.mjs` | Run output URL resolver, task helper, Studio form default, and API metadata unit tests |
+| `test:unit` | `node --test src/outputUrl.test.mjs src/taskModel.test.mjs src/assetsModel.test.mjs src/studioForm.test.mjs src/api.test.mjs` | Run output URL resolver, task helper, generated asset helper, Studio form default, and API metadata unit tests |
 | `preview` | `vite preview --host 127.0.0.1 --port 4173` | Preview built app |
 
 ## Environment Variables
@@ -153,7 +153,7 @@ Current frontend calls these MoneyPrinterTurbo backend endpoints.
 | Generate script | `POST` | `/api/v1/scripts` | Create Studio |
 | Generate search terms | `POST` | `/api/v1/terms` | Create Studio |
 | Create video task | `POST` | `/api/v1/videos` | Create Studio |
-| Task list | `GET` | `/api/v1/tasks` | Tasks page, status probe |
+| Task list | `GET` | `/api/v1/tasks` | Tasks page, Assets page, status probe |
 | Task detail | `GET` | `/api/v1/tasks/{task_id}` | Create Studio polling |
 | Output preview | `GET` | `/tasks/...` | Inline video preview and output links |
 
@@ -209,9 +209,13 @@ Studio defaults use browser `localStorage` only. They persist across browser rel
 
 ### Assets
 
-- Placeholder only
-- Presentational counts only
-- No real asset upload or management flow yet
+- Read-only browser for generated task outputs
+- Fetches `GET /api/v1/tasks?page=1&page_size=50` only when backend status is online
+- Merges backend task outputs with outputs submitted in the current browser session
+- Shows safe output fields only: filename, subject, task ID, status, kind, updated time, and output link
+- Supports search by filename, subject, or task ID plus output-kind and task-status filters
+- Previews `.mp4`, `.webm`, and `.ogg` outputs inline through normalized `/tasks/...` URLs
+- Does not upload, delete, POST, or call generation endpoints
 
 ### Settings
 
@@ -239,7 +243,7 @@ For non-portable use, point `VITE_API_BASE_URL` at any reachable MoneyPrinterTur
 
 This README is written against current local implementation and local backend integration assumptions.
 
-- Frontend checked against `src/App.tsx`, `src/pages/*`, `src/components/*`, `src/api.ts`, `src/taskModel.ts`, `src/studioForm.ts`, `src/content.ts`, `src/outputUrl.ts`, `src/outputUrl.test.mjs`, `src/studioForm.test.mjs`, `.env.example`, and `package.json`
+- Frontend checked against `src/App.tsx`, `src/pages/*`, `src/components/*`, `src/api.ts`, `src/taskModel.ts`, `src/assetsModel.ts`, `src/studioForm.ts`, `src/content.ts`, `src/outputUrl.ts`, `src/outputUrl.test.mjs`, `src/assetsModel.test.mjs`, `src/studioForm.test.mjs`, `.env.example`, and `package.json`
 - Backend compatibility note based on bundled local `MoneyPrinterTurbo/` checkout
 - Tested against project knowledge base reference for upstream commit `042deb8`
 
@@ -250,8 +254,8 @@ Compatibility note:
 ## Known Limitations
 
 - Frontend depends on separately running MoneyPrinterTurbo backend
-- Assets page is still placeholder UI
-- Some action buttons in dashboard and assets area are not wired to backend behavior
+- Assets page is read-only and depends on existing task output paths; it does not manage reusable asset libraries
+- Some action buttons in dashboard are not wired to backend behavior
 - Topbar search box is presentational only; Tasks page search and filters are wired to the local task list
 - No authentication flow documented or enforced by this UI layer
 - Studio defaults are per browser and per origin because they live only in `localStorage`
@@ -261,7 +265,7 @@ Compatibility note:
 
 ## Roadmap
 
-- Real asset browser and upload flow
+- Upload/delete asset management separate from current read-only generated output browser
 - Better handling for long-running jobs and retries
 - More complete settings for generation defaults beyond current browser-local Studio preset fields
 - Clearer backend error surfacing across all workflow steps
@@ -275,6 +279,7 @@ Compatibility note:
 - Backend settings metadata is exported from `src/api.ts` and covered by `src/api.test.mjs`
 - Output URL normalization lives in `src/outputUrl.ts` and is covered by `npm run test:unit`
 - Output links are normalized to backend `/tasks/...` paths before preview
+- Assets helper logic lives in `src/assetsModel.ts` and is covered by `src/assetsModel.test.mjs`
 - Create Studio polling runs on interval and stops after capped attempts if task never resolves
 - Studio default storage helpers live in `src/studioForm.ts` and are covered by `src/studioForm.test.mjs`
 
