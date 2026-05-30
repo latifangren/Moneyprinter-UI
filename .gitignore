@@ -15,3 +15,5 @@ pnpm-debug.log*
 .vscode/
 .idea/
 .opencode/
+/.claude
+/.agents

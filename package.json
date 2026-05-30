@@ -7,19 +7,21 @@
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "tsc -b && vite build",
     "test:unit": "node --test src/outputUrl.test.mjs src/outputInspectorModel.test.mjs src/taskModel.test.mjs src/assetsModel.test.mjs src/studioForm.test.mjs src/studioOptions.test.mjs src/api.test.mjs",
-    "preview": "vite preview --host 127.0.0.1 --port 4173"
+    "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
     "@vitejs/plugin-react": "6.0.2",
-    "vite": "8.0.14",
-    "typescript": "6.0.3",
+    "lucide-react": "1.17.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "lucide-react": "1.17.0"
+    "typescript": "6.0.3",
+    "vite": "8.0.14"
   },
   "devDependencies": {
     "@types/react": "19.2.15",
-    "@types/react-dom": "19.2.3"
+    "@types/react-dom": "19.2.3",
+    "react-doctor": "^0.2.14"
   },
   "license": "MIT"
 }
