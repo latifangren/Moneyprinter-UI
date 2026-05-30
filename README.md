@@ -303,7 +303,7 @@ Compatibility note:
 
 ## License
 
-License: TBD
+This project is licensed under the MIT License. See [LICENSE](./LICENSE) for the full text.
 
 MoneyPrinterTurbo is separate upstream project with its own repository, maintenance, and licensing terms:
 
