@@ -30,20 +30,23 @@ export type AssetStatusCounts = Record<TaskStatusFilter, number>;
 export function createGeneratedAssets(tasks: SubmittedTask[], trustedBaseUrl = ""): GeneratedAsset[] {
   return tasks.flatMap((task) => {
     const outputSummary = getTaskOutputSummary(task, Number.MAX_SAFE_INTEGER);
-    const mountedOutputs = outputSummary.outputs
-      .map((outputPath, outputIndex) => ({ outputPath, outputIndex }))
-      .filter(({ outputPath }) => isTaskMountedOutputPath(outputPath, trustedBaseUrl));
 
-    return mountedOutputs.map(({ outputPath, outputIndex }) => ({
-      id: createGeneratedAssetId(task.taskId, outputPath),
-      taskId: task.taskId,
-      subject: task.subject,
-      status: task.status,
-      updatedAt: task.updatedAt,
-      outputPath,
-      filename: getOutputFilename(outputPath),
-      kind: outputIndex < outputSummary.combinedCount ? "combined" : "clip",
-    }));
+    return outputSummary.outputs.flatMap((outputPath, outputIndex) => {
+      if (!isTaskMountedOutputPath(outputPath, trustedBaseUrl)) {
+        return [];
+      }
+
+      return [{
+        id: createGeneratedAssetId(task.taskId, outputPath),
+        taskId: task.taskId,
+        subject: task.subject,
+        status: task.status,
+        updatedAt: task.updatedAt,
+        outputPath,
+        filename: getOutputFilename(outputPath),
+        kind: outputIndex < outputSummary.combinedCount ? "combined" : "clip",
+      }];
+    });
   });
 }
 
