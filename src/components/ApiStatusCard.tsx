@@ -15,9 +15,9 @@ export function ApiStatusCard({ status, onRefresh, compact = false }: ApiStatusC
           <p className="eyebrow">Backend status</p>
           <h3>FastAPI connection</h3>
         </div>
-        <span className={`status-light status-${status.state}`} role="status">
+        <output className={`status-light status-${status.state}`}>
           <span className="sr-only">{`Backend is ${status.state}`}</span>
-        </span>
+        </output>
       </div>
       <p className="api-message">{status.message}</p>
       <div className="api-meta">

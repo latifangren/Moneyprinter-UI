@@ -91,9 +91,12 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
     activeTask?.status === "submitted";
 
   useEffect(() => {
+    const pollGeneration = pollGenerationRef;
+    const pollController = pollControllerRef;
+
     return () => {
-      pollGenerationRef.current += 1;
-      pollControllerRef.current?.abort();
+      pollGeneration.current += 1;
+      pollController.current?.abort();
     };
   }, []);
 
@@ -413,20 +416,20 @@ export function StudioPage({ status, onTaskChange }: StudioPageProps) {
             <span className="status-chip">{status.baseUrl}</span>
           </div>
           {!backendReady ? (
-            <div className="notice-card notice-warning" role="status">
+            <output className="notice-card notice-warning">
               <AlertCircle size={18} aria-hidden="true" />
               <span>Backend is not ready. Start `api.bat`, refresh status, then run generation actions.</span>
-            </div>
+            </output>
           ) : null}
           {backendReady ? (
-            <div className={`notice-card ${optionsError ? "notice-warning" : "notice-info"}`} role="status">
+            <output className={`notice-card ${optionsError ? "notice-warning" : "notice-info"}`}>
               <AlertCircle size={18} aria-hidden="true" />
               <span>
                 {optionsError
                   ? `Options metadata unavailable, using safe fallback fields: ${optionsError}`
                   : `Options loaded from ${studioOptions.metadataSource === "backend" ? "/api/v1/options" : "local fallback"}.`}
               </span>
-            </div>
+            </output>
           ) : null}
         </div>
         <div className="prompt-card studio-form">
